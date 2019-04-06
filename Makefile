@@ -4,6 +4,7 @@ all: drod.ssd
 tools: tools/dump tools/unpack-room
 
 rooms: dump tools
+	mkdir -p rooms
 	cd rooms ; \
 	for i in `seq -w 350` ; do \
 	    ../tools/unpack-room <../reference/00$$i.dump > room$$i 2>/dev/null; \

@@ -117,6 +117,8 @@ org $1000
 	beq yep
 	cmp keytab3,X
 	beq yep
+	cmp keytab4,X
+	beq yep
 	dex
 	bpl dirloop
 	rts
@@ -127,12 +129,14 @@ org $1000
 .esc	lda #126
 	jmp $fff4
 }
-.keytab1
+.keytab1 ; numpad
 	EQUS "78963214"
-.keytab2
+.keytab2 ; vi-style, lowercase
 	EQUS "ykulnjbh"
-.keytab3
-	EQUB 136,136,139,139,137,137,138,138
+.keytab3 ; vi-style, uppercase
+	EQUS "YKULNJBH"
+.keytab4 ; cursors (orthogonal only)
+	EQUB 139,139,137,137,138,138,136,136
 .init_zp
 {
 	ldy #zp_stuff_end-zp_stuff-1

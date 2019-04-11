@@ -47,6 +47,8 @@ zp_roomno	= $52
 zp_playerx 	= $53
 zp_playery 	= $54
 zp_playerdir	= $55
+zp_tmpdir	= $56
+zp_currentforce	= $57 ; what directions any force tile under the player permits
 
 ; pre-initialized zero page
 zp=$60
@@ -60,7 +62,7 @@ INPOS = get_crunched_byte+1
 osrdch = $ffe0	
 oswrch = $ffee
 osbyte = $fff4
-	
+;CPU 1
 org $1000
 .start
 	lda #4
@@ -147,7 +149,7 @@ org $1000
 	rts
 }
 
-; move one room, direction in A 
+; move one room, direction in A (4:4), returns C clear if OK
 .traverse
 {
 	clc
@@ -160,9 +162,8 @@ org $1000
 	inx
 	cpx #MAXROOMS
 	bne loop
-.fail
-	lda #7
-	jmp oswrch
+.fail	sec
+	rts
 .gotit
 	stx zp_roomno
 	jmp init_room
@@ -173,6 +174,8 @@ org $1000
 	sta zp_playerx
 	lda level_starty
 	sta zp_playery
+	lda #255
+	sta zp_currentforce
 	ldy level_startroom
 	sty zp_roomno
 	jmp init_room
@@ -186,6 +189,7 @@ org $1000
 	
 	jsr plotroom
 	jsr draw_player
+	clc
 	rts
 
 .draw_player
@@ -237,18 +241,24 @@ org $1000
 	jmp draw_tile
 .off	rts
 }
-
+.fail_early
+	rts
 ; dir in X
 .move_player
 {
-	stx tmp+1
+	stx zp_tmpdir
+	lda bitmasktab,X
+	bit zp_currentforce
+	beq fail_early
 	jsr erase_player
 	lda zp_playerx
-.tmp	ldx #0
+	sta tmp_playerx+1
+	ldx zp_tmpdir
 	clc
 	adc zp_dirtablex,X
 	sta zp_playerx
 	lda zp_playery
+	sta tmp_playery+1
 	clc
 	adc zp_dirtabley,X
 	sta zp_playery
@@ -259,28 +269,67 @@ org $1000
 	bmi movewest
 	cmp #XSIZE
 	beq moveeast
-	jmp draw_player
+
+.check_contents
+{
+	ldy zp_playerx
+	ldx zp_playery
+	jsr get_tile
+	cpx #$04
+	beq fail
+	cpx #$0c
+	beq fail
+	; check force tiles
+	cmp #$0d
+	bcc notforce
+	cmp #$15
+	bcs notforce
+.force
+	tax
+	ldy zp_tmpdir
+	lda bitmasktab,Y
+	sta zp_tmpdir
+	lda forcetab-$0d,X
+	bit zp_tmpdir
+	beq fail
+	sta zp_currentforce
+	bne ok ; always
+}
+.notforce
+	lda #255
+	sta zp_currentforce
+.ok	jmp draw_player
 
 .movenorth
 	lda #YSIZE-1
 	sta zp_playery
 	lda #$f0
-	jmp traverse
+	bne maybe_traverse ;always
 .movesouth
 	lda #0
 	sta zp_playery
 	lda #$10
-	jmp traverse
+	bne maybe_traverse ;always
 .movewest
 	lda #XSIZE-1
 	sta zp_playerx
 	lda #$ff
-	jmp traverse
+	bne maybe_traverse ;always
 .moveeast
 	lda #0
 	sta zp_playerx
 	lda #$01
-	jmp traverse
+.maybe_traverse
+	jsr traverse
+	bcc check_contents ; FIXME!
+.fail
+.tmp_playerx
+	lda #0
+	sta zp_playerx
+.tmp_playery
+	lda #0
+	sta zp_playery
+	jmp draw_player
 }
 .plotroom
 {	
@@ -420,22 +469,27 @@ org $1000
 	bpl loop
 	rts
 }
-	.linetab_lo
+.linetab_lo
 FOR I,0,32,1
-    EQUB <(I*XRES*16+SCRSTART)
+	EQUB <(I*XRES*16+SCRSTART)
 NEXT
 .linetab_hi
 FOR I,0,32,1
-    EQUB >(I*XRES*16+SCRSTART)
+	EQUB >(I*XRES*16+SCRSTART)
 NEXT
 .mul16_lo
 FOR I,0,42,1
-    EQUB <(I*16)
+	EQUB <(I*16)
 NEXT
 .mul16_hi
 FOR I,0,42,1
-    EQUB >(I*16)
+	EQUB >(I*16)
 NEXT
+.bitmasktab
+	EQUB $80,$40,$20,$10,$08,$04,$02,$01
+.forcetab
+	EQUB %11110001, %11111000, %01111100, %00111110
+	EQUB %00011111, %10001111, %11000111, %11100011
 .zp_stuff
 .tilelinetab_copy
 ; only even lines get a table entry

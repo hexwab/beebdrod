@@ -14,15 +14,15 @@ MAX_SEQUENCE_LENGTH_256 = 1
 ; -------------------------------------------------------------------
 ; zero page addresses used
 ; -------------------------------------------------------------------
-zp_len_lo = $17
-zp_len_hi = $18
+zp_len_lo = $97
+zp_len_hi = $98
 
-zp_src_lo  = $1e
+zp_src_lo  = $9e
 zp_src_hi  = zp_src_lo + 1
 
-zp_bits_hi = $19
+zp_bits_hi = $99
 ;;; zp_bits_hi needs leaving spare!!!!
-zp_bitbuf  = $1b
+zp_bitbuf  = $9b
 zp_dest_lo = zp_bitbuf + 1      ; dest addr lo
 zp_dest_hi = zp_bitbuf + 2      ; dest addr hi
 

@@ -38,7 +38,7 @@ level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 
-room		= $1680 	; $980 bytes
+room		= $1560
 room_end	= $2000
 
 zp_xcoord 	= $50
@@ -52,11 +52,11 @@ zp_tmpdir	= $56
 zp_currentforce	= $57 ; what directions any force tile under the player permits
 
 ; pre-initialized zero page
-zp=$60
+zp=$0
 tilelinetab_zp=zp+0 ; must be 32-byte aligned
-get_crunched_byte = zp+$20
-zp_dirtablex = zp+$2a
-zp_dirtabley = zp+$32
+get_crunched_byte = zp+$22
+zp_dirtablex = zp+$2c
+zp_dirtabley = zp+$34
 
 INPOS = get_crunched_byte+1
 
@@ -148,26 +148,6 @@ org $1000
 	dey
 	bpl loop
 	rts
-}
-
-; move one room, direction in A (4:4), returns C clear if OK
-.traverse
-{
-	clc
-	ldx zp_roomno
-	adc level_coordtab,X
-	ldx #0
-.loop
-	cmp level_coordtab,X
-	beq gotit
-	inx
-	cpx #MAXROOMS
-	bne loop
-.fail	sec
-	rts
-.gotit
-	stx zp_roomno
-	jmp init_room
 }
 
 .init_level
@@ -264,13 +244,6 @@ org $1000
 	clc
 	adc zp_dirtabley,X
 	sta zp_playery
-	bmi movenorth
-	cmp #YSIZE
-	beq movesouth
-	lda zp_playerx
-	bmi movewest
-	cmp #XSIZE
-	beq moveeast
 
 .check_contents
 {
@@ -300,30 +273,16 @@ org $1000
 .notforce
 	lda #255
 	sta zp_currentforce
-.ok	jmp draw_player
-
-.movenorth
-	lda #YSIZE-1
-	sta zp_playery
-	lda #$f0
-	bne maybe_traverse ;always
-.movesouth
-	lda #0
-	sta zp_playery
-	lda #$10
-	bne maybe_traverse ;always
-.movewest
-	lda #XSIZE-1
-	sta zp_playerx
-	lda #$ff
-	bne maybe_traverse ;always
-.moveeast
-	lda #0
-	sta zp_playerx
-	lda #$01
-.maybe_traverse
-	jsr traverse
-	bcc check_contents ; FIXME!
+.ok
+	lda zp_playery
+	bmi movenorth
+	cmp #YSIZE
+	beq movesouth
+	lda zp_playerx
+	bmi movewest
+	cmp #XSIZE
+	beq moveeast
+	jmp draw_player
 .fail
 .tmp_playerx
 	lda #0
@@ -332,7 +291,48 @@ org $1000
 	lda #0
 	sta zp_playery
 	jmp draw_player
+
+.movenorth
+	lda #YSIZE-1
+	sta zp_playery
+	lda #$f0
+	bne traverse ;always
+.movesouth
+	lda #0
+	sta zp_playery
+	lda #$10
+	bne traverse ;always
+.movewest
+	lda #XSIZE-1
+	sta zp_playerx
+	lda #$ff
+	bne traverse ;always
+.moveeast
+	lda #0
+	sta zp_playerx
+	lda #$01
 }
+
+; move one room, direction in A (4:4)
+.traverse
+{
+	ldx zp_roomno
+	clc
+	adc level_coordtab,X
+	ldx #0
+.loop
+	cmp level_coordtab,X
+	beq gotit
+	inx
+	cpx #MAXROOMS
+	bne loop
+.fail	brk
+.gotit
+	stx zp_roomno
+	jmp init_room
+}
+
+
 .plotroom
 {	
 	ldy #37
@@ -379,18 +379,21 @@ org $1000
 	;bcs outside
 	tya
 	asl a
+	clc
+	adc #40*2+2
 	tay
+	inx
 	txa
 	lsr a
 	bcc even
 	tya
-	adc #38*2-1 ; carry is set
+	adc #40*2-1 ; carry is set
 	tay
 	txa
 	lsr a
 .even
 	asl a
-	ora #tilelinetab_zp
+	;ora #tilelinetab_zp
 	rts
 }
 
@@ -495,8 +498,8 @@ NEXT
 .zp_stuff
 .tilelinetab_copy
 ; only even lines get a table entry
-FOR I,0,30,2
-    EQUW (I*38*2+room)
+FOR I,0,32,2
+    EQUW ((I-1)*40*2+room)
 NEXT
 .get_crunched_byte_copy
 {

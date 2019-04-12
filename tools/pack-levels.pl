@@ -63,17 +63,45 @@ while (<>) {
 	my $head2='';
 	my $out='';
 	for my $r (@rooms) {
+	    local $/=undef;
+	    open F, sprintf("rooms/room%03d",$r) or die;
+	    $roomdata[$r] = <F>;
+	}
+	for my $r (@rooms) {
 	    my ($x,$y,$style,$required,$dump)=@{$room[$r]};
 	    $coord=$x + $y*16;
 	    die unless $coord; # we're using zero as a sentinel
 	    #print  "room $r: ".join(",",@{$room[$r]})."\n";
 	    my $roomdata;
-	    {local $/=undef;open F, sprintf("rooms/room%03d.exo",$r) or die;
-	     $roomdata = <F>;
-	     $roomdata = substr($roomdata,2); # skip dest address
+	    my $r2="\x04\x00"x(40*34); # wall
+	    # pad room to 40x34, include 1 line from adjacent rooms
+	    for my $i (0..31) {
+		 substr($r2,(($i+1)*40+1)*2,38*2,substr($roomdata[$r],$i*38*2,38*2));
 	    }
+
+	    my @left = grep { $room[$_]->[0] == $x-1 && $room[$_]->[1] == $y } @rooms;
+	    if (@left) {
+		for my $i (0..31) {
+		    substr($r2,(($i+1)*40)*2,2,substr($roomdata[$left[0]],($i*38+37)*2,2));
+		}
+	    }
+	    my @right = grep { $room[$_]->[0] == $x+1 && $room[$_]->[1] == $y } @rooms;
+	    if (@right) {
+		for my $i (0..31) {
+		    substr($r2,(($i+1)*40+39)*2,2,substr($roomdata[$right[0]],$i*38*2,2));
+		}
+	    }
+	    my @top = grep { $room[$_]->[0] == $x && $room[$_]->[1] == $y-1 } @rooms;
+	    if (@top) {
+		substr($r2,2,38*2,substr($roomdata[$top[0]],(38*31)*2,38*2));
+	    }
+	    my @bottom = grep { $room[$_]->[0] == $x && $room[$_]->[1] == $y+1 } @rooms;
+	    if (@bottom) {
+		substr($r2,(40*33+1)*2,38*2,substr($roomdata[$bottom[0]],0,38*2));
+	    }
+	    #FIXME: diagonals?
 	    my $ptr=loc+headersize+length$out;
-	    $out.=$roomdata;
+	    $out.=substr(exo($r2,0),2); # skip dest address
 	    $head2.=pack"Cv", $coord, $ptr;
 	}
 	die if length $head2>roomtablesize;
@@ -92,4 +120,17 @@ while (<>) {
     $lastlev=$lev;
     $laststyle=$style;
     push @rooms, $n;
+}
+
+sub exo {
+    my ($dat, $addr) = @_;
+    use File::Temp qw[tempfile];
+    my ($fh,$fn) = tempfile();
+    print $fh shift;
+    close $fh;
+    open my $f, sprintf("exomizer level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,$addr);
+    local $/=undef;
+    my $q=<$f>;
+    unlink $fn;
+    return $q;
 }

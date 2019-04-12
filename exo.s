@@ -94,6 +94,15 @@ ENDIF
 ; more suitable address.
 ; -------------------------------------------------------------------
 
+.decrunch_to
+	stx INPOS
+        sty INPOS+1
+	sta zp_dest_hi
+	lda #0
+	sta zp_dest_lo
+	ldx #1
+	bne decrunch2 ; always
+
 ; -------------------------------------------------------------------
 ; jsr this label to decrunch, it will in turn init the tables and
 ; call the decruncher
@@ -105,8 +114,9 @@ ENDIF
 {
 	stx INPOS
         sty INPOS+1
-        ldy #0
         ldx #3
+.*decrunch2
+        ldy #0
 .init_zp
         jsr get_crunched_byte
         sta zp_bitbuf - 1,x

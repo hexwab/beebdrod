@@ -21,5 +21,5 @@ exorooms: rooms
 	cd rooms; \
 	for i in room???; do exomizer level -c -M256 $$i@0x1600 -o $$i.exo ; done
 
-drod.ssd: drod.s drod.bas
+drod.ssd: drod.s exo.s drod.bas
 	beebasm -i drod.s -do drod.ssd -opt 3 -v >out.txt

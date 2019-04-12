@@ -69,7 +69,8 @@ while (<>) {
 	    #print  "room $r: ".join(",",@{$room[$r]})."\n";
 	    my $roomdata;
 	    {local $/=undef;open F, sprintf("rooms/room%03d.exo",$r) or die;
-	    $roomdata = <F>;
+	     $roomdata = <F>;
+	     $roomdata = substr($roomdata,2); # skip dest address
 	    }
 	    my $ptr=loc+headersize+length$out;
 	    $out.=$roomdata;

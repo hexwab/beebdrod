@@ -38,7 +38,8 @@ level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 
-room		= $1600 	; $980 bytes, to $1f80
+room		= $1680 	; $980 bytes
+room_end	= $2000
 
 zp_xcoord 	= $50
 zp_ycoord 	= $51
@@ -168,7 +169,7 @@ org $1000
 	stx zp_roomno
 	jmp init_room
 }
-	
+
 .init_level
 	lda level_startx
 	sta zp_playerx
@@ -185,7 +186,8 @@ org $1000
 	ldx level_roomptrlo,Y
 	lda level_roomptrhi,Y
 	tay
-	jsr decrunch
+	lda #>room_end
+	jsr decrunch_to
 	
 	jsr plotroom
 	jsr draw_player

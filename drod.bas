@@ -1,10 +1,9 @@
 MODE 1
-*LOAD code 1000
 INPUT"Level (1-24)",L%
 IFL%=0:L%=1
 OSCLI"SRLOAD level"+RIGHT$("0"+STR$L%,2)+" 8000 4"
 FORI%=0TO&FFF STEP4:I%!&2000=(I%DIV16)*&15:NEXT:REM random sprite data
 *FX11,30
 *FX12,5
-CALL&1000
+*/code
 END

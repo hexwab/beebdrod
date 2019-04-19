@@ -24,6 +24,19 @@ MSPRTAB=$9000 ; must be 4K-aligned
 ; playing area size
 XSIZE=38
 YSIZE=32
+; opaque layer:
+; 01 blank
+; 02 pit
+; 04 wall
+; 07 green door
+; 09 yellow door closed
+; 0a yellow door open
+; 0c wall 2
+
+;transparent layer
+; 00 blank
+; 09-14 force arrow
+; 18 orb
 
 LEVEL_HEADER_SIZE=5	
 MAXROOMS=30
@@ -38,11 +51,12 @@ level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 
-room		= $1560
-room_end	= $2000
+room		= $1400
+room_end	= room+$aa0
+orbs		= room_end
 
-zp_xcoord 	= $50
-zp_ycoord 	= $51
+zp_tmpx 	= $50
+zp_tmpy 	= $51
 zp_roomno	= $52
 
 zp_playerx 	= $53
@@ -50,6 +64,7 @@ zp_playery 	= $54
 zp_playerdir	= $55
 zp_tmpdir	= $56
 zp_currentforce	= $57 ; what directions any force tile under the player permits
+zp_tmpindex	= $58
 
 ; pre-initialized zero page
 zp=$0
@@ -64,7 +79,7 @@ osrdch = $ffe0
 oswrch = $ffee
 osbyte = $fff4
 ;CPU 1
-org $1000
+org $e00
 .start
 	lda #4
 	sta $f4
@@ -91,7 +106,8 @@ org $1000
 	bpl ok
 	lda #7
 	sta zp_playerdir
-.ok	jmp draw_player
+.ok	jsr check_sword
+	jmp draw_player
 }
 .notturnleft
 	cmp #'w'
@@ -107,7 +123,8 @@ org $1000
 	beq ok
 	lda #0
 	sta zp_playerdir
-.ok	jmp draw_player
+.ok	jsr check_sword
+	jmp draw_player
 }
 .notturnright
 ; check directions
@@ -166,8 +183,7 @@ org $1000
 	ldx level_roomptrlo,Y
 	lda level_roomptrhi,Y
 	tay
-	lda #>room_end
-	jsr decrunch_to
+	jsr decrunch
 	
 	jsr plotroom
 	jsr draw_player
@@ -250,9 +266,14 @@ org $1000
 	ldy zp_playerx
 	ldx zp_playery
 	jsr get_tile
-	cpx #$04
+	sty zp_tmpindex
+	cpx #$04 ; wall
 	beq fail
-	cpx #$0c
+	cpx #$02 ; pit
+	beq fail
+	cpx #$0c ; wall2
+	beq fail
+	cpx #$09 ; closed yellow door
 	beq fail
 	; check force tiles
 	cmp #$0d
@@ -274,6 +295,7 @@ org $1000
 	lda #255
 	sta zp_currentforce
 .ok
+	jsr check_sword
 	lda zp_playery
 	bmi movenorth
 	cmp #YSIZE
@@ -332,42 +354,212 @@ org $1000
 	jmp init_room
 }
 
+.check_sword
+IF 0
+	lda zp_tmpindex
+	ldx zp_playerdir
+	clc
+	adc dirtable_offset,X
+	tay
+	jsr get_last_tile
+ELSE
+	ldx zp_playerdir
+	lda zp_playerx
+	clc
+	adc zp_dirtablex,X
+	tay
+	lda zp_playery
+	clc
+	adc zp_dirtabley,X
+	tax
+	sty zp_tmpx
+	stx zp_tmpy
+	jsr get_tile
+ENDIF
+	cmp #$18
+	bne notorb
+.orb
+{
+	ldy #0
+.orbloop
+	lda orbs,Y
+	php
+	and #$3f
+	cmp zp_tmpx
+	bne no
+	lda orbs+1,Y
+	lsr a
+	lsr a
+	cmp zp_tmpy
+	bne no
+	sty zp_tmpindex
+.do_orb
+{
+	plp
+.do_orb_loop
+	ldy zp_tmpindex
+	lda orbs+3,Y
+	sta orb_type+1
+	lsr a
+	lsr a
+	tax
+	lda orbs+2,Y
+	php
+	iny
+	iny
+	sty zp_tmpindex
+	and #$7f
+	tay
+
+	sty zp_tmpx
+	stx zp_tmpy
+	jsr get_tile
+	stx fill_from+1
+.orb_type
+	lda #0
+	and #3
+	cmp #1
+	beq orb_type_toggle
+	cmp #2
+	beq orb_type_open
+	cmp #3
+	beq orb_type_toggle
+	brk
+.orb_type_close
+	cpx #$0a
+	bne skip
+	beq done_orb_type
+.orb_type_open
+	cpx #$09
+	bne skip
+.orb_type_toggle
+.done_orb_type
+	stx fill_from+1
+	txa
+	eor #$03
+	sta fill_to+1
+	ldy zp_tmpx
+	ldx zp_tmpy
+	jsr fill
+.skip
+	plp
+	bpl do_orb_loop
+	rts
+}
+.no
+	lda orbs+1,Y
+	and #3
+	clc
+	adc #1+1
+	asl a
+	sta tmp+1
+	tya
+	clc
+.tmp	adc #0
+	tay
+	plp
+	bpl orbloop ; if not last
+.fail
+	brk
+}
+.notorb
+	rts
+
+.fill
+{
+	txa
+	pha
+	tya
+	pha
+	sty zp_tmpx
+	stx zp_tmpy
+	jsr get_tile_ptr_and_index
+	sta tmp2+1
+	sta tmp3+1
+.tmp2	lda ($00),Y
+.*fill_from
+	cmp #0
+	bne no
+.yes
+.*fill_to
+	lda #0
+.tmp3	sta ($00),Y
+	ldx zp_tmpx
+	ldy zp_tmpy
+	jsr plot
+.recurse
+	;; FIXME: this uses waaaay too much stack
+	ldy zp_tmpx
+	ldx zp_tmpy
+	dex
+	dey
+	jsr fill
+	iny
+	jsr fill
+	iny
+	jsr fill
+	inx
+	jsr fill
+	inx
+	jsr fill
+	dey
+	jsr fill
+	dey
+	jsr fill
+	dex
+	jsr fill
+.no
+	pla
+	tay
+	pla
+	tax
+	rts
+}
 
 .plotroom
 {	
 	ldy #37
-	sty zp_xcoord
+	sty zp_tmpx
 .xloop
 	ldx #31
-	stx zp_ycoord	
+	stx zp_tmpy
 .yloop
-	ldy zp_xcoord
-	ldx zp_ycoord	
+	ldy zp_tmpx
+	ldx zp_tmpy
 	jsr get_tile
 	bne not_transp
 	txa
 .not_transp
-	ldx zp_xcoord
-	ldy zp_ycoord	
+	ldx zp_tmpx
+	ldy zp_tmpy	
 	jsr plot
-	dec zp_ycoord
+	dec zp_tmpy
 	bpl yloop
-	dec zp_xcoord
+	dec zp_tmpx
 	bpl xloop
+	lda #31
+	jsr oswrch
+	lda #38
+	jsr oswrch
+	lda #0
+	jsr oswrch
+	lda zp_roomno
+	ora #$40
+	jsr oswrch
 	rts
 }
 
 ; X,Y reversed coords
 .draw_tile
 {
-	sty zp_xcoord
-	stx zp_ycoord	
+	sty zp_tmpx
+	stx zp_tmpy
 	jsr get_tile
 	bne not_transp
 	txa
 .not_transp
-	ldx zp_xcoord
-	ldy zp_ycoord
+	ldx zp_tmpx
+	ldy zp_tmpy
 	jmp plot
 }
 
@@ -403,6 +595,7 @@ org $1000
 	jsr get_tile_ptr_and_index
 	sta tmp+1
 	sta tmp2+1
+.*get_last_tile
 .tmp	lda ($00),Y
 	iny
 	tax
@@ -495,6 +688,10 @@ NEXT
 .forcetab
 	EQUB %11110001, %11111000, %01111100, %00111110
 	EQUB %00011111, %10001111, %11000111, %11100011
+.dirtable_offset
+	EQUB (-40-1)*2-1,(-40)*2-1, (-40+1)*2-1, (1)*2-1
+	EQUB (+40+1)*2-1,(+40)*2-1, (+40-1)*2-1, (-1)*2-1
+	
 .zp_stuff
 .tilelinetab_copy
 ; only even lines get a table entry

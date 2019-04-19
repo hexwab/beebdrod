@@ -39,7 +39,21 @@ my $laststyle;
 my $lastlev=1;
 my $lastn=0;
 my $out='';
+my $subv='';
 while (<>) {
+    $subv=$1,next if /: subview '(.*)'/;
+    if ($subv=~/^Orb/ && /: (\d+) (\d+)$/) {
+	push @{$orbs[$lastn]}, [[$1,$2]]; #[$orbx,$orby];
+	#$orbx=$1;
+	#$orby=$2;
+	#@orb=();
+	#print "orb $_\n";
+    }
+    if ($subv eq 'OrbAgents' && /: (\d+) (\d+) (\d+)$/) {
+	push @{$orbs[$lastn]->[-1]}, [$1,$2,$3]; #[[$orbx,$orby],@orb] if @orb;
+	#push @orb, [$1,$2,$3];
+	#print "orbagent $_\n";
+    }
     next unless /=>/;
 #      0: 1 1 48 144 38 32 1 1 (3668b => 00001.dump)
     /\d+: (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+).*=> (.*?)\)/ or die;
@@ -99,9 +113,37 @@ while (<>) {
 	    if (@bottom) {
 		substr($r2,(40*33+1)*2,38*2,substr($roomdata[$bottom[0]],0,38*2));
 	    }
-	    #FIXME: diagonals?
+
+	    #orbs
+	    my $orbs='';
+	    if ($orbs[$r]) {
+		#print Dumper $orbs[$r];
+		my $norbs=scalar(@{$orbs[$r]});
+		for my $orb (@{$orbs[$r]}) {
+		    my ($x,$y)=@{shift @$orb};
+		    my $last=!--$norbs;
+		    my $nagents=@$orb;
+		    #print "$x $y $nagents\n";
+		    die if $nagents>4;
+		    my $q=substr($r2,(($y+1)*40+($x+1))*2,2);
+		    die Dumper($orb).hd($q) if $q ne "\x01\x18";
+		    $orbs.=pack"C2",$x|($last?128:0),($y<<2)+$nagents-1;
+		    #print Dumper $orb;
+		    for my $ag (@$orb) {
+			my ($type,$x,$y)=@$ag;
+			my $last=!--$nagents;
+			die $type if $type>3 or $type<1;
+			$orbs.=pack"C2",$x|($last?128:0),($y<<2)+$type;
+		    }
+		}
+	    }
+	    #hd($orbs);
+	    #print "maxorbs=".scalar(@{$orbs[$r]})."\n"
+	    die if length $orbs>255;
+	    $r2.=$orbs;
+
 	    my $ptr=loc+headersize+length$out;
-	    $out.=substr(exo($r2,0),2); # skip dest address
+	    $out.=exo($r2,0x1400);
 	    $head2.=pack"Cv", $coord, $ptr;
 	}
 	die if length $head2>roomtablesize;
@@ -133,4 +175,8 @@ sub exo {
     my $q=<$f>;
     unlink $fn;
     return $q;
+}
+
+sub hd {
+    open(my$f,"|hd") or die$!;print $f @_;
 }

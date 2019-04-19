@@ -127,6 +127,13 @@ org $e00
 	jmp draw_player
 }
 .notturnright
+	cmp #'r'
+	beq do_restart
+	cmp #'R'
+	bne notrestart
+.do_restart
+	jmp restart_room
+.notrestart
 ; check directions
 {
   	ldx #7
@@ -178,13 +185,29 @@ org $e00
 	sty zp_roomno
 	jmp init_room
 
+.restart_room
+.restartx
+	lda #0
+	sta zp_playerx
+.restarty
+	lda #0
+	sta zp_playery
+.restartdir
+	lda #0
+	sta zp_playerdir
+
 .init_room
 	ldy zp_roomno
 	ldx level_roomptrlo,Y
 	lda level_roomptrhi,Y
 	tay
 	jsr decrunch
-	
+	lda zp_playerx
+	sta restartx+1
+	lda zp_playery
+	sta restarty+1
+	lda zp_playerdir
+	sta restartdir+1
 	jsr plotroom
 	jsr draw_player
 	clc

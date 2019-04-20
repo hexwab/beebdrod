@@ -298,6 +298,8 @@ org $e00
 	beq fail
 	cpx #$09 ; closed yellow door
 	beq fail
+	cmp #$18 ; orb
+	beq fail
 	; check force tiles
 	cmp #$0d
 	bcc notforce
@@ -446,7 +448,7 @@ ENDIF
 	cmp #2
 	beq orb_type_open
 	cmp #3
-	beq orb_type_toggle
+	beq orb_type_close
 	brk
 .orb_type_close
 	cpx #$0a

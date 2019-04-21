@@ -40,6 +40,7 @@ my $lastlev=1;
 my $lastn=0;
 my $out='';
 my $subv='';
+my (@orbs,@scrolls);
 while (<>) {
     $subv=$1,next if /: subview '(.*)'/;
     if ($subv=~/^Orb/ && /: (\d+) (\d+)$/) {
@@ -54,12 +55,18 @@ while (<>) {
 	#push @orb, [$1,$2,$3];
 	#print "orbagent $_\n";
     }
-    next unless /=>/;
-#      0: 1 1 48 144 38 32 1 1 (3668b => 00001.dump)
+    if ($subv eq 'Scrolls' && /: (\d+) (\d+) (\d+)$/) {
+        push @{$scrolls[$lastn]}, [$1,$2,$3];
+    }
+    #die if $subv eq 'SavedGames';
+    next unless /=>/ || ($subv eq 'SavedGames');
+    #      0: 1 1 48 144 38 32 1 1 (3668b => 00001.dump)
+    my ($n,$lev,$x,$y,$style,$required,$dump);
+    if ($subv eq 'SavedGames') {$lev=99} else {
     /\d+: (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+).*=> (.*?)\)/ or die;
     die unless $5==38;
     die unless $6==32;
-    my ($n,$lev,$x,$y,$style,$required,$dump) = ($1,$2,$3,$4,$7,$8,$9);
+    ($n,$lev,$x,$y,$style,$required,$dump) = ($1,$2,$3,$4,$7,$8,$9);
     die unless $n-$lastn==1;
     $lastn=$n;
     $y%=100;
@@ -68,6 +75,7 @@ while (<>) {
     $x-=44;
     $y-=44;
     $room[$1] = [$x,$y,$style,$required,$dump];
+    }
     if ($lastlev!=$lev) {
 	print "level $lastlev: ".scalar(@rooms)." rooms: ".join(",",@rooms);
 	my @data=@{$levdata[$lastlev-1]};
@@ -127,7 +135,7 @@ while (<>) {
 		    die if $nagents>4;
 		    my $q=substr($r2,(($y+1)*40+($x+1))*2,2);
 		    die Dumper($orb).hd($q) if $q ne "\x01\x18";
-		    $orbs.=pack"C2",$x|($last?128:0),($y<<2)+$nagents-1;
+		    $orbs.=pack"C2",$x,($y<<2)+$nagents-1;
 		    #print Dumper $orb;
 		    for my $ag (@$orb) {
 			my ($type,$x,$y)=@$ag;
@@ -137,9 +145,39 @@ while (<>) {
 		    }
 		}
 	    }
-	    #hd($orbs);
+	    if ($scrolls[$r]) {
+		my $nscrolls=scalar(@{$scrolls[$r]});
+		for my $scroll (@{$scrolls[$r]}) {
+		    my ($x,$y,$id)=@$scroll;
+		    my $last=!--$nscrolls;
+		    next if $id>=10063 && $id<=10069; # skip credits in L1:1W
+		    my $text;
+		    {
+			open F,"text/$id.txt" or die;
+			local $/=undef;
+			$text=<F>;
+		    }
+		    $text=~s/ It used.*//s if $id==10091; # hack for L3:1S
+		    $text=~s/Open /\x80/g;
+		    $text=~s/Close /\x81/g;
+		    $text=~s/Toggle /\x82/g;
+		    #$text=~s/ the /\x83/g;
+		    #$text=~s/ you /\x84/g;
+		    #$text=~s/ to /\x85/g;
+		    #$text=~s/ scroll/\x86/g;
+		    #$text=~s/ orb/\x87/g;
+		    #$text=~s/ of /\x88/g;
+		    use Text::Wrap;
+		    $Text::Wrap::columns=24;
+		    $text=wrap('', '', $text);
+		    $text=~s/\n/\r/g;
+		    $orbs.=pack"C3",$x|128,($y<<2),3+length $text;
+		    $orbs.=$text;
+		}
+	    }
+	    hd($orbs);
 	    #print "maxorbs=".scalar(@{$orbs[$r]})."\n"
-	    die if length $orbs>255;
+	    die length $orbs if length $orbs>255;
 	    $r2.=$orbs;
 
 	    my $ptr=loc+headersize+length$out;
@@ -155,7 +193,7 @@ while (<>) {
 	open F, sprintf(">level%02d",$lastlev) or die;
 	print F $header.$head2.$out;
 	@rooms=();
-	last if $lev==25; # FIXME!
+	last if $lastlev==25;
     } else {
 	die if defined $laststyle && $laststyle!=$style;
     }

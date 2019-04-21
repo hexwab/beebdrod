@@ -2,7 +2,7 @@
 XRES=40
 YRES=32
 SCRSTART=$3000
-SPRTAB=$2000 ; must be 4K-aligned
+SPRTAB=$A000 ; must be 4K-aligned
 ; 256 non-masked sprites
 ; sprites are 16 bytes (8x8x2bpp)
 ; sprite 0 at SPRTAB+0
@@ -51,7 +51,7 @@ level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 
-room		= $1400
+room		= $2400
 room_end	= room+$aa0
 orbs		= room_end
 
@@ -295,6 +295,8 @@ org $e00
 	beq fail
 	cpx #$02 ; pit
 	beq fail
+	cpx #$05 ; crumbly
+	beq fail
 	cpx #$0c ; wall2
 	beq fail
 	cpx #$09 ; closed yellow door
@@ -499,6 +501,21 @@ ENDIF
 	tay
 	bne orbloop ;always
 .*notorb
+	cpx #$05
+	bne notcrumbly
+.crumbly
+{
+	ldy zp_tmpx
+	ldx zp_tmpy
+	jsr get_tile_ptr_and_index
+	sta tmp+1
+	lda #$01
+.tmp	sta ($00),Y
+	ldx zp_tmpx
+	ldy zp_tmpy
+	jmp plot
+}
+.notcrumbly
 	rts
 .skip_scroll
 	lda orbs+2,Y

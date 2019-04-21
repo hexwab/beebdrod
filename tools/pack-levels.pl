@@ -181,7 +181,7 @@ while (<>) {
 	    $r2.=$orbs;
 
 	    my $ptr=loc+headersize+length$out;
-	    $out.=exo($r2,0x1400);
+	    $out.=exo($r2,0x2400);
 	    $head2.=pack"Cv", $coord, $ptr;
 	}
 	die if length $head2>roomtablesize;

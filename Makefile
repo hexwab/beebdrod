@@ -10,6 +10,12 @@ rooms: dump tools
 	    ../tools/unpack-room <../reference/00$$i.dump > room$$i 2>/dev/null; \
 	done
 
+text:
+	mkdir -p text
+	cd text ; \
+	../tools/dump ../reference/text.dat >../reference/text.txt ; \
+	perl ../tools/text.pl <../reference/text.txt
+
 dump:
 	cd reference ; \
 	../tools/dump drod1_6.dat >drod1_6.txt

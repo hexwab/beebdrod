@@ -76,6 +76,7 @@ zp_dirtabley = zp+$34
 INPOS = get_crunched_byte+1
 
 osrdch = $ffe0	
+osasci = $ffe3
 oswrch = $ffee
 osbyte = $fff4
 ;CPU 1
@@ -300,6 +301,17 @@ org $e00
 	beq fail
 	cmp #$18 ; orb
 	beq fail
+	; check scroll
+	cmp #$17
+	bne notscroll
+.scroll
+	lda zp_playerx
+	sta zp_tmpx
+	lda zp_playery
+	sta zp_tmpy
+	jsr orb
+	jmp ok
+.notscroll
 	; check force tiles
 	cmp #$0d
 	bcc notforce
@@ -421,6 +433,7 @@ ENDIF
 .do_orb
 {
 	plp
+	bmi actually_scroll
 .do_orb_loop
 	ldy zp_tmpindex
 	lda orbs+3,Y
@@ -447,9 +460,9 @@ ENDIF
 	beq orb_type_toggle
 	cmp #2
 	beq orb_type_open
-	cmp #3
-	beq orb_type_close
-	brk
+	;cmp #3
+	;beq orb_type_close
+	;brk
 .orb_type_close
 	cpx #$0a
 	bne skip
@@ -472,23 +485,76 @@ ENDIF
 	rts
 }
 .no
+	plp
+	bmi skip_scroll
 	lda orbs+1,Y
 	and #3
 	clc
 	adc #1+1
 	asl a
-	sta tmp+1
+.q	sta tmp+1
 	tya
 	clc
 .tmp	adc #0
 	tay
-	plp
-	bpl orbloop ; if not last
-.fail
-	brk
-}
-.notorb
+	bne orbloop ;always
+.*notorb
 	rts
+.skip_scroll
+	lda orbs+2,Y
+	bne q ;always
+.actually_scroll
+	ldx #0
+.initscrollloop
+	lda drawscrolltab,X
+	jsr oswrch
+	inx
+	cpx #drawscrolltab_end-drawscrolltab
+	bne initscrollloop
+	ldx orbs+2,Y
+.scroll_loop
+	lda orbs+3,Y
+	jsr packed_wrch
+	iny
+	dex
+	cpx #3
+	bne scroll_loop
+	lda #26
+	jmp oswrch
+.drawscrolltab
+	equb 28,7,22,31,8,12
+.drawscrolltab_end
+}
+
+.packed_wrch
+{
+	bmi token
+	jmp osasci
+.token
+	sty ytmp+1
+	tay
+	lda tokentable-128,Y
+	tay
+.tokloop
+	lda tokens,Y
+	php
+	and #$7f
+	iny
+	jsr osasci
+	plp
+	bpl tokloop
+.ytmp	ldy #0
+	rts
+.tokentable
+	equb t0-tokens,t1-tokens,t2-tokens
+.tokens
+.t0	equb "Open",160
+.t1	equb "Close",160
+.t2	equb "Toggle",160
+;.t3	equb " the",160
+;.t4	equb " yo",u+128
+;.t5	equb " o",'f'+128
+}	
 
 .fill
 {
@@ -716,7 +782,7 @@ NEXT
 .dirtable_offset
 	EQUB (-40-1)*2-1,(-40)*2-1, (-40+1)*2-1, (1)*2-1
 	EQUB (+40+1)*2-1,(+40)*2-1, (+40-1)*2-1, (-1)*2-1
-	
+INCLUDE "exo.s"
 .zp_stuff
 .tilelinetab_copy
 ; only even lines get a table entry
@@ -737,7 +803,6 @@ NEXT
 .dirtabley_copy
 	EQUB -1,-1,-1,0,1,1,1,0
 .zp_stuff_end
-INCLUDE "exo.s"
 .end
 	
 PUTFILE "boot", "!BOOT", 0, 0
@@ -767,3 +832,4 @@ PUTFILE "level21", "level21", $8000, $8000
 PUTFILE "level22", "level22", $8000, $8000
 PUTFILE "level23", "level23", $8000, $8000
 PUTFILE "level24", "level24", $8000, $8000
+PUTFILE "level25", "level25", $8000, $8000

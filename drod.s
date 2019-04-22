@@ -198,22 +198,30 @@ org $e00
 	sta zp_playerdir
 
 .init_room
+{
 	ldy zp_roomno
 	ldx level_roomptrlo,Y
 	lda level_roomptrhi,Y
 	tay
 	jsr decrunch
-	lda zp_playerx
-	sta restartx+1
-	lda zp_playery
-	sta restarty+1
+	ldy zp_playerx
+	sty restartx+1
+	ldx zp_playery
+	stx restarty+1
 	lda zp_playerdir
 	sta restartdir+1
+	; ensure player is standing on empty floor
+	jsr get_tile_ptr_and_index
+	sta tmp+1
+	lda #$01
+.tmp	sta ($00),Y
+
 	jsr plotroom
+	jsr check_sword
 	jsr draw_player
 	clc
 	rts
-
+}
 .draw_player
 {
 	ldx zp_playerx

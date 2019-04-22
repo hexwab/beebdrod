@@ -2,11 +2,11 @@
 use Data::Dumper;
 use constant loc => 0x8000;
 use constant roomsize => 3; # header bytes/room
-use constant maxrooms => 30; # header stride
+use constant maxrooms => 25; # header stride
 use constant roomtablesize => maxrooms*roomsize;
 use constant headersize => roomtablesize+5;
 # hardcoded data
-my @levdata = ( # startroom,startX,startY,O??
+my @levdata = ( # startroom,startX,startY,orientation
     [17,15,15,8],
     [23,15,15,8],
     [44,18,15,8],
@@ -81,7 +81,7 @@ while (<>) {
 	my @data=@{$levdata[$lastlev-1]};
 	print " startroom=$data[0] firstroom=$rooms[0]\n";
 	#,@leveldata[1..3];
-	my $header=pack"C5",$#rooms,$data[0]-$rooms[0],@data[1..3];
+	my $header=pack"C5",$#rooms,$data[0]-$rooms[0],@data[1..2],(12-$data[3])&7;
 	my $head2='';
 	my $out='';
 	for my $r (@rooms) {

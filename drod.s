@@ -39,13 +39,13 @@ YSIZE=32
 ; 18 orb
 
 LEVEL_HEADER_SIZE=5	
-MAXROOMS=30
+MAXROOMS=25
 level		= $8000
 level_nrooms    = level+0
 level_startroom = level+1
 level_startx    = level+2
 level_starty    = level+3
-level_unknownO  = level+4
+level_startdir  = level+4
 level_tables    = level+LEVEL_HEADER_SIZE
 level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
@@ -180,6 +180,8 @@ org $e00
 	sta zp_playerx
 	lda level_starty
 	sta zp_playery
+	lda level_startdir
+	sta zp_playerdir
 	lda #255
 	sta zp_currentforce
 	ldy level_startroom

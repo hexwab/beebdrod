@@ -40,7 +40,7 @@ my $lastlev=1;
 my $lastn=0;
 my $out='';
 my $subv='';
-my (@orbs,@scrolls);
+my (@orbs,@scrolls,@monsters);
 while (<>) {
     $subv=$1,next if /: subview '(.*)'/;
     if ($subv=~/^Orb/ && /: (\d+) (\d+)$/) {
@@ -57,6 +57,10 @@ while (<>) {
     }
     if ($subv eq 'Scrolls' && /: (\d+) (\d+) (\d+)$/) {
         push @{$scrolls[$lastn]}, [$1,$2,$3];
+    }
+    if ($subv eq 'Monsters' && /: (\d+) (\d+) (\d+) (\d+) (\d+) (\d+)/) {
+        push @{$monsters[$lastn]}, [$1,$2,$3,$4,$5,$6];
+	print "mon $1 $2 $3 $4 $5 $6\n";
     }
     #die if $subv eq 'SavedGames';
     next unless /=>/ || ($subv eq 'SavedGames');
@@ -122,6 +126,123 @@ while (<>) {
 		substr($r2,(40*33+1)*2,38*2,substr($roomdata[$bottom[0]],0,38*2));
 	    }
 
+	    # munge level data
+	    # see DRODLib/TileConstants.h
+
+	    # frequency of tiles in KDD:
+	    # 176868 0100 floor
+	    # 142000 0400 wall
+	    #  62497 0200 pit
+	    #  12280 0123 tar
+	    #  10902 0b00 trapdoor
+	    #   2825 0900 door
+	    #   2106 0119 snake
+	    #   1985 011a snake
+	    #   1816 0c00 obstacle
+	    #   1659 0a00 door
+	    #   1576 0500 crumbly wall
+	    #   1371 0300 stairs
+	    #   1028 0423 tar on wall
+	    #    858 0118 orb
+	    #    735 010f arrow
+	    #    691 010d arrow
+	    #    562 0111 arrow
+	    #    392 0113 arrow
+	    #    361 0700 green door
+	    #    303 011c snake
+	    #    292 0b23 tar on trapdoor
+	    #    284 011d snake
+	    #    281 011b snake
+	    #    272 011e snake
+	    #    266 010e arrow
+	    #    220 2400 checkpoint
+	    #    183 0112 arrow
+	    #    150 0110 arrow
+	    #    120 0114 arrow
+	    #    115 0116 mimic potion
+	    #    102 0600 cyan door
+	    #     93 0b1a snake on trapdoor
+	    #     85 0800 red door
+	    #     51 0117 scroll
+	    #     48 0122 snake
+	    #     48 0120 snake
+	    #     42 011f snake
+	    #     30 0121 snake
+	    #     27 0923 tar on closed door
+	    #     14 0a19 snake on open door
+	    #     12 0a1a snake on open door
+	    #     10 0b1f snake on trapdoor
+	    #      5 0b0f arrow on trapdoor!
+	    #      5 0a23 tar on open door
+	    #      4 0b1b snake on trapdoor
+	    #      3 2423 tar on checkpoint
+	    #      3 0b1d snake on trapdoor
+	    #      3 0b19 snake on trapdoor
+	    #      3 0b11 arrow on trapdoor!
+	    #      3 0b0d arrow on trapdoor!
+	    #      2 0b1e snake on trapdoor
+	    #      2 0b13 snake on trapdoor
+	    #      2 0115 invisibility potion
+	    #      1 0b22 snake on trapdoor
+	    #      1 0b21 snake on trapdoor
+	    #      1 0b17 snake on trapdoor
+	    #      1 0a20 snake on open door
+	    #      1 0a1d snake on open door
+
+	    my @r2=unpack"n*", $r2;
+	    for my $q (@r2) {
+		if (($q&0xff00) == 0x100) {
+		    # something on floor
+		    if (($q&0xff) >= 0xd && ($q&0xff) <= 0x18) {
+			# force arrow, potion, scroll, orb
+			# move to layer one
+			$q = ($q&0xff)<<8;
+		    } elsif (($q&0xff) >= 0x19 && ($q&0xff) <= 0x23) {
+			# snake, tar
+			# leave on layer two
+		    }
+		} elsif (($q&0xff) == 0) {
+		    # nothing on something
+		    # leave alone
+		} elsif (($q&0xff) == 0x23) {
+		    # tar on something
+		    # leave alone
+		} elsif (($q&0xff00) == 0xb00) {
+		    # trapdoor
+		    # FIXME
+		    $q = 0x100;
+		} elsif (($q&0xff00) == 0xa00 &&
+			 ($q&0xff) >= 0x19 && ($q&0xff) <= 0x22) {
+		    # snake on open door
+		    # leave alone
+		} else {
+		    die sprintf"%04x", $q;
+		}
+	    }
+
+	    #monsters
+	    my $mons='';
+	    if ($monsters[$r]) {
+		my $nmon=scalar(@{$monsters[$r]});
+		for my $monster (@{$monsters[$r]}) {
+		    my ($type,$x,$y,$dir,$first,$unused)=@$monster;
+		    die if $unused;
+		    die $type if $type>15;
+		    die $first if $first!~/^[01]$/;
+		    die if $x<0 || $x>37 || $y<0 || $y>31;
+		    #$mons.=pack"C3",$x,$y,$type+(((12-$data[3])&7)<<4)+($first<<7);
+		    my $qq=$r2[40*($y+1)+($x+1)];
+		    if (($qq&0xff)==0x23 && $type==8) {
+			# tar mother on tar
+			# FIXME
+		    } else {
+			die sprintf("%d %4x",$type,$qq) if $qq&0xff;
+		    }
+		    $r2[40*($y+1)+($x+1)] = 0x66; # FIXME
+		}
+	    }
+	    $r2=pack"n*",@r2;
+	    die unless length($r2)==40*34*2;
 	    #orbs
 	    my $orbs='';
 	    if ($orbs[$r]) {
@@ -133,8 +254,8 @@ while (<>) {
 		    my $nagents=@$orb;
 		    #print "$x $y $nagents\n";
 		    die if $nagents>4;
-		    my $q=substr($r2,(($y+1)*40+($x+1))*2,2);
-		    die Dumper($orb).hd($q) if $q ne "\x01\x18";
+		    my $q=$r2[40*($y+1)+($x+1)]; #substr($r2,(($y+1)*40+($x+1))*2,2);
+		    die Dumper($orb).sprintf("%4x",$q) if $q != 0x1800;
 		    $orbs.=pack"C2",$x,($y<<2)+$nagents-1;
 		    #print Dumper $orb;
 		    for my $ag (@$orb) {
@@ -175,11 +296,15 @@ while (<>) {
 		    $orbs.=$text;
 		}
 	    }
-	    hd($orbs);
+	    #hd($orbs);
 	    #print "maxorbs=".scalar(@{$orbs[$r]})."\n"
-	    die length $orbs if length $orbs>255;
+	    die length $orbs if length $orbs>254;
+	    #$r2.=pack"C",length($orbs);
 	    $r2.=$orbs;
-
+	    #$r2.=pack"C",length($orbs);
+	    #$r2.=$mons;
+	    #printf "moncount=%d end=%x\n",length($mons)/3,length($r2)+0x2400;
+	    #hd(substr($r2,40*34*2));
 	    my $ptr=loc+headersize+length$out;
 	    $out.=exo($r2,0x2400);
 	    $head2.=pack"Cv", $coord, $ptr;

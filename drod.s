@@ -311,10 +311,10 @@ org $e00
 	beq fail
 	cpx #$09 ; closed yellow door
 	beq fail
-	cmp #$18 ; orb
+	cpx #$18 ; orb
 	beq fail
 	; check scroll
-	cmp #$17
+	cpx #$17
 	bne notscroll
 .scroll
 	lda zp_playerx
@@ -325,12 +325,11 @@ org $e00
 	jmp ok
 .notscroll
 	; check force tiles
-	cmp #$0d
+	cpx #$0d
 	bcc notforce
-	cmp #$15
+	cpx #$15
 	bcs notforce
 .force
-	tax
 	ldy zp_tmpdir
 	lda bitmasktab,Y
 	sta zp_tmpdir
@@ -425,7 +424,7 @@ ELSE
 	stx zp_tmpy
 	jsr get_tile
 ENDIF
-	cmp #$18
+	cpx #$18
 	bne notorb
 .orb
 {

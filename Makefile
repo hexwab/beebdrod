@@ -23,5 +23,12 @@ dump:
 levels:
 	perl tools/pack-levels.pl <reference/drod1_6.txt
 
-drod.ssd: drod.s exo.s drod.bas
+levels-test:
+	perl tools/pack-levels.pl -d <reference/drod1_6.txt
+
+tiles: tiles.png
+	python3 tools/sprites.py tiles.png
+
+drod.ssd: drod.s exo.s intro.s drod.bas tiles
+	beebasm -i intro.s -v >intro.txt
 	beebasm -i drod.s -do drod.ssd -opt 3 -v >out.txt

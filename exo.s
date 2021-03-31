@@ -94,12 +94,15 @@ ENDIF
 ; more suitable address.
 ; -------------------------------------------------------------------
 
+;.decrunch_to
+;	stx INPOS
+;        sty INPOS+1
+;	sta zp_dest_hi
+;	lda #0
+;	sta zp_dest_lo
+
+; requires INPOS, zp_dest be set up
 .decrunch_to
-	stx INPOS
-        sty INPOS+1
-	sta zp_dest_hi
-	lda #0
-	sta zp_dest_lo
 	ldx #1
 	bne decrunch2 ; always
 
@@ -114,6 +117,7 @@ ENDIF
 {
 	stx INPOS
         sty INPOS+1
+.*continue_decrunching
         ldx #3
 .*decrunch2
         ldy #0
@@ -122,6 +126,7 @@ ENDIF
         sta zp_bitbuf - 1,x
         dex
         bne init_zp
+
 ; -------------------------------------------------------------------
 ; calculate tables (62 bytes) + get_bits macro
 ; x and y must be #0 when entering

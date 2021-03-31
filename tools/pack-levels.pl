@@ -1,10 +1,13 @@
 #!/usr/bin/perl -w
 use Data::Dumper;
 use constant loc => 0x8000;
-use constant roomsize => 3; # header bytes/room
+use constant roomsize => 4; # header bytes/room
 use constant maxrooms => 25; # header stride
 use constant roomtablesize => maxrooms*roomsize;
 use constant headersize => roomtablesize+5;
+
+my $dryrun=(shift=~/^-d/);
+
 # hardcoded data
 my @levdata = ( # startroom,startX,startY,orientation
     [17,15,15,8],
@@ -93,11 +96,21 @@ while (<>) {
 	    open F, sprintf("rooms/room%03d",$r) or die;
 	    $roomdata[$r] = <F>;
 	}
+	my ($minx,$miny,$maxx,$maxy)=(999,999,-999,-999);
 	for my $r (@rooms) {
 	    my ($x,$y,$style,$required,$dump)=@{$room[$r]};
 	    $coord=$x + $y*16;
 	    die unless $coord; # we're using zero as a sentinel
-	    #print  "room $r: ".join(",",@{$room[$r]})."\n";
+	    $minx=$x unless $x>$minx;
+	    $maxx=$x unless $x<$maxx;
+	    $miny=$y unless $y>$miny;
+	    $maxy=$y unless $y<$miny;
+	    print  "room $r: ".join(",",@{$room[$r]})."\n";
+	}
+	print "minx $minx maxx $maxx miny $miny maxy $maxy width ".($maxx-$minx+1)." height ".($maxy-$miny+1)."\n";
+	for my $r (@rooms) {
+	    my ($x,$y,$style,$required,$dump)=@{$room[$r]};
+	    $coord=($x-$minx) + ($y-$miny)*8;
 	    my $roomdata;
 	    my $r2="\x04\x00"x(40*34); # wall
 	    # pad room to 40x34, include 1 line from adjacent rooms
@@ -238,7 +251,7 @@ while (<>) {
 		    } else {
 			die sprintf("%d %4x",$type,$qq) if $qq&0xff;
 		    }
-		    $r2[40*($y+1)+($x+1)] = 0x66; # FIXME
+		    $r2[40*($y+1)+($x+1)] |= 0x66; # FIXME
 		}
 	    }
 	    $r2=pack"n*",@r2;
@@ -279,44 +292,58 @@ while (<>) {
 			$text=<F>;
 		    }
 		    $text=~s/ It used.*//s if $id==10091; # hack for L3:1S
-		    $text=~s/Open /\x80/g;
-		    $text=~s/Close /\x81/g;
-		    $text=~s/Toggle /\x82/g;
+		    use Text::Wrap;
+		    $Text::Wrap::columns=24;
+		    $text=wrap('', '', $text);
+		    chomp $text;
+		    $text=~s/\n/\r/g;
+		    chomp $text;
+		    $text=~s/Open/\x00/g;
+		    $text=~s/Close/\x01/g;
+		    $text=~s/Toggle/\x02/g;
+		    $text=~s/The/\x12/g;
+		    $text=~s/ce /\x0b/g;
+		    $text=~s/Sen/\x09/g;
+		    $text=~s/On/\x04/g;
+		    $text=~s/\.\r/\x13/g;
+		    $text=~s/ (.)/($1|"\x80")/eg; # signal spaces with top bit
 		    #$text=~s/ the /\x83/g;
 		    #$text=~s/ you /\x84/g;
 		    #$text=~s/ to /\x85/g;
 		    #$text=~s/ scroll/\x86/g;
 		    #$text=~s/ orb/\x87/g;
 		    #$text=~s/ of /\x88/g;
-		    use Text::Wrap;
-		    $Text::Wrap::columns=24;
-		    $text=wrap('', '', $text);
-		    $text=~s/\n/\r/g;
 		    $orbs.=pack"C3",$x|128,($y<<2),3+length $text;
 		    $orbs.=$text;
 		}
 	    }
-	    #hd($orbs);
+	    hd($orbs);
 	    #print "maxorbs=".scalar(@{$orbs[$r]})."\n"
+	    print "maxorbs=".length($orbs)."\n";
 	    die length $orbs if length $orbs>254;
 	    #$r2.=pack"C",length($orbs);
-	    $r2.=$orbs;
+	    #$r2.=$orbs;
 	    #$r2.=pack"C",length($orbs);
 	    #$r2.=$mons;
 	    #printf "moncount=%d end=%x\n",length($mons)/3,length($r2)+0x2400;
 	    #hd(substr($r2,40*34*2));
 	    my $ptr=loc+headersize+length$out;
-	    $out.=exo($r2,0x2400);
-	    $head2.=pack"Cv", $coord, $ptr;
+	    #my $inlen=length $orbs;my $outlen=length exo($orbs,0x2400+40*34*2);print "ratio=".($inlen?($outlen/$inlen):"")." in=$inlen out=$outlen \n"; # turns out orb data is all but incompressible
+	    $out.=$orbs unless $dryrun;
+	    $out.=exo($r2,0x2400) unless $dryrun;
+	    #$out.=exo($orbs,0x2400+40*34*2) unless $dryrun;
+	    $head2.=pack"CvC", $coord, $ptr, length $orbs;
 	}
 	die if length $head2>roomtablesize;
 	$head2.="\0"x(roomtablesize-length($head2));
 	# deinterleave per-room stuff
 	use List::MoreUtils qw(part);
-	{my $i=0;$head2=join"",map {@$_} part {$i++%3} split//,$head2;}
+	{my $i=0;$head2=join"",map {@$_} part {$i++%4} split//,$head2;}
 	die unless length $head2==roomtablesize;
-	open F, sprintf(">level%02d",$lastlev) or die;
-	print F $header.$head2.$out;
+	unless ($dryrun) {
+	    open F, sprintf(">level%02d",$lastlev) or die;
+	    print F $header.$head2.$out;
+	}
 	@rooms=();
 	last if $lastlev==25;
     } else {

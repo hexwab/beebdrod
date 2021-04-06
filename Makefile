@@ -29,6 +29,6 @@ levels-test:
 tiles: tiles.png
 	python3 tools/sprites.py tiles.png
 
-drod.ssd: drod.s exo.s intro.s drod.bas tiles
+drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s sprite.s tiles
 	beebasm -i intro.s -v >intro.txt
 	beebasm -i drod.s -do drod.ssd -opt 3 -v >out.txt

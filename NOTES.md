@@ -7,7 +7,10 @@ Level file:
 0004: starting direction, 0-7
 0005: 25 bytes of coordinate
 coordinates are 3 bits X 2:0, 3 bits Y (5:3)
-  zzyyyxxx
+  abyyyxxx
+  a is 0 for unexplored, 1 for explored
+  b is 0 for unconquered, 1 for conquered
+  [ab always 00 but updated in memory]
 001e: 25 bytes of pointer lo to room data
 0037: 25 bytes of pointer hi to room data
 pointers are absolute, assuming level is at 8000

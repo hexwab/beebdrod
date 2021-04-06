@@ -25,6 +25,8 @@ zp_bits_hi = $99
 zp_bitbuf  = $9b
 zp_dest_lo = zp_bitbuf + 1      ; dest addr lo
 zp_dest_hi = zp_bitbuf + 2      ; dest addr hi
+zp_exo_dest_lo = zp_dest_lo
+zp_exo_dest_hi = zp_dest_hi
 
 decrunch_table = $101 ; yes! we have enough stack space to use page 1 here
 ;.decrunch_table SKIP 156
@@ -101,24 +103,27 @@ ENDIF
 ;	lda #0
 ;	sta zp_dest_lo
 
-; requires INPOS, zp_dest be set up
-.decrunch_to
-	ldx #1
-	bne decrunch2 ; always
+; requires zp_dest_hi be set up
+.decrunch_to_no_header
+	sta zp_dest_lo
+	lda #1
+	equb $2c
+.decrunch
+	lda #3
 
 ; -------------------------------------------------------------------
 ; jsr this label to decrunch, it will in turn init the tables and
 ; call the decruncher
 ; no constraints on register content, however the
 ; decimal flag has to be #0 (it almost always is, otherwise do a cld)
-.decrunch
+;.decrunch
 ; -------------------------------------------------------------------
 ; init zeropage, x and y regs. (12 bytes)
 {
 	stx INPOS
         sty INPOS+1
 .*continue_decrunching
-        ldx #3
+        tax
 .*decrunch2
         ldy #0
 .init_zp

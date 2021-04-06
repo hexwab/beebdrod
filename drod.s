@@ -229,6 +229,11 @@ ENDIF
 .init_room
 {
 	ldx zp_roomno
+	; mark room as explored
+	lda level_coordtab,X
+	ora #$80
+	sta level_coordtab,X
+
 	lda level_roomptrlo,X
 	sta orbptr+1
 	ldy level_roomptrhi,X
@@ -239,8 +244,10 @@ ENDIF
 	iny
 .noinc
 	tax
-	
-	jsr decrunch ; decompress tiles
+	lda #>room_end
+	sta zp_exo_dest_hi
+	lda #<room_end
+	jsr decrunch_to_no_header ; decompress tiles
 
 	; copy orbs
 	ldy zp_roomno
@@ -440,15 +447,18 @@ ENDIF
 	lda #$01
 }
 
-; move one room, direction in A (4:4)
+; move one room, direction in A (3:3)
 .traverse
 {
 	ldx zp_roomno
 	clc
 	adc level_coordtab,X
+	tay
 	ldx #0
 .loop
-	cmp level_coordtab,X
+	tya
+	eor level_coordtab,X
+	and #$3f ; mask off explored/conquered flags
 	beq gotit
 	inx
 IF DEBUG
@@ -708,13 +718,14 @@ ENDIF
 	jsr osrdch ; wait for key
 	lda #26
 	jsr oswrch
-	ldx #24
+	ldx #7
 	stx zp_tmpy
-	ldx #32
-	lda #6
-	ldy #7
+	ldx #6
+	lda #33
+	ldy #25
 	jmp plot_some_room ; erase scroll
 .drawscrolltab
+	equb 17,131,17,0
 IF FANCY_BORDERS=0
 	equb 28,6,23,32,7,12	
 ENDIF
@@ -956,46 +967,47 @@ ENDIF
 
 .plot_entire_room
 {
-	ldx #31
+	ldx #0
 	stx zp_tmpy
-	ldx #37
-	lda #0
-	tay
+	lda #38
+	ldy #32
 ; X: x start. A: x end. zp_tmpy: y start. Y: y end
 .*plot_some_room
 	stx xstart+1
 	sta xend+1
 	sty yend+1
+	lda #19
+	jsr $fff4
 	ldx zp_tmpy
 .yloop
 .xstart
 	ldy #$ee
 	sty zp_tmpx
 	jsr get_tile
-	dey
-	sty zp_tmpindex
-	cmp #0 ; skip get_last_tile 
-	jmp skip
+	sty zp_tmpindex ; +1
+	;cmp #0 ; skip get_last_tile 
+	bcc skip ;always
+IF DEBUG
+	brk
+ENDIF
 .xloop
+	; next tile
 	ldy zp_tmpindex
+	iny
+	sty zp_tmpindex
+	inc zp_tmpindex
 	jsr get_last_tile
 .skip
 	jsr plot_from_tile
 	
-	ldy zp_tmpindex
-	dey
-	dey
-	sty zp_tmpindex
+	inc zp_tmpx
 	ldy zp_tmpx
-	dey
-	sty zp_tmpx
 .xend	cpy #$ee
-	bpl xloop
+	bcc xloop
+	inc zp_tmpy
 	ldx zp_tmpy
-	dex
-	stx zp_tmpy
 .yend	cpx #$ee
-	bpl yloop
+	bcc yloop
 IF 0
 ; print room number, @-Z
 	lda #31

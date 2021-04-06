@@ -88,7 +88,7 @@ while (<>) {
 	my @data=@{$levdata[$lastlev-1]};
 	print " startroom=$data[0] firstroom=$rooms[0]\n";
 	#,@leveldata[1..3];
-	my $header=pack"C5",$#rooms,$data[0]-$rooms[0],@data[1..2],(12-$data[3])&7;
+	my $header=pack"C5",scalar(@rooms),$data[0]-$rooms[0],@data[1..2],(12-$data[3])&7;
 	my $head2='';
 	my $out='';
 	for my $r (@rooms) {
@@ -355,16 +355,16 @@ while (<>) {
 }
 
 sub exo {
-    my ($dat, $addr) = @_;
+    my ($dat) = @_;
     use File::Temp qw[tempfile];
     my ($fh,$fn) = tempfile();
     print $fh shift;
     close $fh;
-    open my $f, sprintf("exomizer level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,$addr);
+    open my $f, sprintf("exomizer level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,0);#$addr);
     local $/=undef;
     my $q=<$f>;
     unlink $fn;
-    return $q;
+    return substr($q,2);
 }
 
 sub hd {

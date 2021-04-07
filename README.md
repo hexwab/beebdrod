@@ -9,7 +9,7 @@ Requirements: Master or Model B/B+ with DFS and SRUTILS and SWRAM in bank 4 (for
 Keys:
 * hjklyubn (nethack-style) or numpad (on Master): move
 * qw: turn sword
-* m: map (TODO)
+* m: map
 * r: restart room
 
 Debugging keys:

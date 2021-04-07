@@ -26,7 +26,7 @@ levels:
 levels-test:
 	perl tools/pack-levels.pl -d <reference/drod1_6.txt
 
-tiles: tiles.png
+tiles: tiles.png tools/sprites.py
 	python3 tools/sprites.py tiles.png
 
 drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s sprite.s tiles

@@ -73,7 +73,7 @@ with Image.open(sys.argv[1]) as image:
             0x5e: (12,13),# scroll S
             0x5f: (13,13),# scroll SE
                         
-            0x88: (1,4), #roach (FIXME)
+            0x66: (1,4), #roach (FIXME)
 
     }
 
@@ -99,7 +99,7 @@ with Image.open(sys.argv[1]) as image:
                         byte = 0
                         for dx in range(4):
                             colour = image.getpixel((x+dx+srcx, y+dy+srcy))
-                            if colour==4: colour = 3 # FIXME: masking
+                            if colour==4: colour = 2 # FIXME: masking
                             assert (colour < 4)
                             value = (0,1,0x10,0x11)[colour]
                             byte = (byte<<1) | value

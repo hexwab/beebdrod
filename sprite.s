@@ -1,3 +1,29 @@
+MACRO nibshiftright
+	lsr a
+	lsr a
+	lsr a
+	lsr a
+ENDMACRO
+MACRO nibshiftleft
+	asl a
+	asl a
+	asl a
+	asl a
+ENDMACRO
+
+.plot_with_bounds_check
+{
+	cpx #0
+	bmi no
+	cpx #XSIZE
+	beq no
+	cpy #0
+	bmi no
+	cpy #YSIZE
+	bne plot
+.no	rts
+}
+
 ; X,Y reversed coords
 .draw_tile
 {
@@ -8,14 +34,19 @@
 }
 
 ; having just called get_[last_]tile, figure out what to plot and plot it.
-; opaque in A (Z if A=0), transparent in X, coords in zp_tmpx/zp_tmpy
+; transparent in A (Z if A=0), opaque in X, coords in zp_tmpx/zp_tmpy
 .plot_from_tile
 {
-; if there's something in the transparent layer, plot that
-; otherwise plot the opaque layer (FIXME)
-	bne not_transp
-	txa
+	beq not_transp
+	; plot tranparent over opaque
+	stx background_sprite+1
+	ldx zp_tmpx
+	ldy zp_tmpy
+	jmp plot_masked_inline_with_background
 .not_transp
+	; common case: nothing in the transparent layer
+	; so plot just the opaque layer
+	txa
 	ldx zp_tmpx
 	ldy zp_tmpy
 	; fall through
@@ -96,22 +127,27 @@ ENDIF
 	rts
 }
 
-; UNUSED, UNTESTED
 
-; X,Y coords, A masked sprite number
-.plot_masked
+; X,Y coords, A sprite number
+.plot_masked_inline
 {
-	sta tmp+1
+.last_sprite
+	cmp #$ee
+	beq same ; skip src calc if we can
+	sta last_sprite+1
+
+	; calc src address
 	and #$0f
-	ora #>MSPRTAB
+	ora #>SPRTAB
 	sta src1+2
-	sta mask1+2
-.tmp
-	lda #$00
+	sta src2+2
+
+	lda last_sprite+1
 	and #$f0
 	sta src1+1
-	ora #$80
-	sta mask1+1
+	sta src2+1
+.same
+	; calc dest address
 	lda linetab_lo,Y
 	clc
 	adc mul16_lo,X
@@ -123,18 +159,101 @@ ENDIF
 	sta dst2+2
 	ldx #15
 .loop
-.dst1
-	lda $ee00,X
-.src1
-	and $ee00,X
-.mask1
-	ora $ee00,X
-.dst2
-	sta $ee00,X
+	; get src byte (4px)
+	; if it's zero, don't draw anything at all
+	; OR MSN with LSN. now LSN is 4 bits of mask (0 for origsrc, 1 for newsrc)
+	; OR LSN with LSN<<4. gives bytemask
+	; now dest=(origsrc AND bytemask) OR (newsrc AND NOT bytemask)
+	
+.src1	lda $ee00,X
+	eor #$0f ; colour 2 is transparent
+	beq skip
+	sta tmp+1
+	nibshiftright
+.tmp	and #$ee
+	sta tmp2+1
+	nibshiftleft
+.tmp2	ora #$ee
+	tay
+.dst1	and $ee00,X
+	sta tmp3+1
+	tya
+	eor #$ff
+.src2	and $ee00,X
+.tmp3	ora #$ee
+.dst2	sta $ee00,X
+
+.skip
 	dex
 	bpl loop
 	rts
 }
+
+
+
+; X,Y coords, A sprite number 
+.plot_masked_inline_with_background
+{
+.last_sprite
+	cmp #$ee
+	beq same ; skip src calc if we can
+	sta last_sprite+1
+
+	; calc src address
+	and #$0f
+	ora #>SPRTAB
+	sta src1+2
+	sta src2+2
+
+	lda last_sprite+1
+	and #$f0
+	sta src1+1
+	sta src2+1
+.same
+
+.*background_sprite
+	lda #$ee
+	; calc src address
+	and #$0f
+	ora #>SPRTAB
+	sta dst1+2
+
+	lda background_sprite+1
+	and #$f0
+	sta dst1+1
+
+	; calc dest address
+	lda linetab_lo,Y
+	clc
+	adc mul16_lo,X
+	sta dst2+1
+	lda linetab_hi,Y
+	adc mul16_hi,X
+	sta dst2+2
+	ldx #15
+.loop
+.src1	lda $ee00,X
+	eor #$0f ; colour 2 is transparent
+	sta tmp+1
+	nibshiftright
+.tmp	and #$ee
+	sta tmp2+1
+	nibshiftleft
+.tmp2	ora #$ee
+	tay
+.dst1	and $ee00,X
+	sta tmp3+1
+	tya
+	eor #$ff
+.src2	and $ee00,X
+.tmp3	ora #$ee
+.dst2	sta $ee00,X
+
+	dex
+	bpl loop
+	rts
+}
+
 .linetab_lo
 FOR I,0,32,1
 	EQUB <(I*XRES*16+SCRSTART)

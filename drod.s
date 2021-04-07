@@ -268,10 +268,12 @@ ENDIF
 	lda zp_playerdir
 	sta restartdir+1
 	; ensure player is standing on empty floor
-;	jsr get_tile_ptr_and_index
-;	sta tmp+1
-;	lda #$01
-;.tmp	sta ($00),Y
+	; this may not otherwise be the case if there was a
+	; crumbly wall on the border
+	jsr get_tile_ptr_and_index
+	sta tmp+1
+	lda #$01
+.tmp	sta ($00),Y
 
 	jsr plot_entire_room
 	jsr check_sword
@@ -280,11 +282,22 @@ ENDIF
 }
 .draw_player
 {
+IF 0
 	ldx zp_playerx
 	ldy zp_playery
 	lda #$40 ; FIXME
 	ora zp_playerdir
 	jsr plot
+ELSE
+	jsr get_player_tile
+	stx background_sprite+1
+	ldx zp_playerx
+	ldy zp_playery
+	lda #$40 ; FIXME
+	ora zp_playerdir
+	jsr plot_masked_inline_with_background
+ENDIF
+
 .*draw_sword
 	ldy zp_playerdir
 	lda zp_playerx
@@ -303,7 +316,7 @@ ENDIF
 	beq off
 	lda #$48 ; sword
 	ora zp_playerdir
-	jmp plot
+	jmp plot_masked_inline
 .off	rts
 }
 
@@ -403,7 +416,6 @@ ENDIF
 	lda #255
 	sta zp_currentforce
 .ok
-	jsr check_sword
 	lda zp_playery
 	bmi movenorth
 	cmp #YSIZE
@@ -412,6 +424,7 @@ ENDIF
 	bmi movewest
 	cmp #XSIZE
 	beq moveeast
+	jsr check_sword
 	jmp end_turn
 .fail
 .tmp_playerx
@@ -510,7 +523,7 @@ ENDIF
 .tmp	sta ($00),Y
 	ldx zp_tmpx
 	ldy zp_tmpy
-	jmp plot
+	jmp plot_with_bounds_check
 }
 .notcrumbly
 	cmp #$66 ; FIXME
@@ -638,26 +651,26 @@ IF FANCY_BORDERS ; may need to disable for low-memory machines
 	lda #$58 ; scroll NW
 	ldx #6
 	ldy #7
-	jsr plot
+	jsr plot_masked_inline
 	lda #$5a ; scroll NE
 	ldx #32
 	ldy #7
-	jsr plot
+	jsr plot_masked_inline
 	lda #$5d ; scroll SW
 	ldx #6
 	ldy #23
-	jsr plot
+	jsr plot_masked_inline
 	lda #$5f ; scroll SE
 	ldx #32
 	ldy #23
-	jsr plot
+	jsr plot_masked_inline
 .top
 	ldx #7
 	stx zp_tmpx
 .toploop
 	lda #$59 ; scroll N
 	ldy #7
-	jsr plot
+	jsr plot_masked_inline
 	ldx zp_tmpx
 	inx
 	stx zp_tmpx
@@ -670,7 +683,7 @@ IF FANCY_BORDERS ; may need to disable for low-memory machines
 .bottomloop
 	lda #$5e ; scroll S
 	ldy #23
-	jsr plot
+	jsr plot_masked_inline
 	ldx zp_tmpx
 	inx
 	stx zp_tmpx
@@ -683,7 +696,7 @@ IF FANCY_BORDERS ; may need to disable for low-memory machines
 .leftloop
 	lda #$5b ; scroll W
 	ldx #6
-	jsr plot
+	jsr plot_masked_inline
 	ldy zp_tmpy
 	iny
 	sty zp_tmpy
@@ -696,7 +709,7 @@ IF FANCY_BORDERS ; may need to disable for low-memory machines
 .rightloop
 	lda #$5c ; scroll E
 	ldx #32
-	jsr plot
+	jsr plot_masked_inline
 	ldy zp_tmpy
 	iny
 	sty zp_tmpy

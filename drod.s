@@ -26,14 +26,6 @@ SPRTAB=$A000 ; must be 4K-aligned
 ; sprite 16 at SPRTAB+$10
 ; sprite 17 at SPRTAB+$110
 ; ...
-MSPRTAB=$9000 ; must be 4K-aligned
-; 128 masked sprites
-; sprites are 32 bytes (8x8x2bpp)
-; sprite 0 at SPRTAB+0
-; sprite 0 mask at SPRTAB+$80
-; sprite 1 at SPRTAB+$100
-; sprite 1 mask at SPRTAB+$180
-; ...
 
 ; playing area size
 XSIZE=38
@@ -73,28 +65,27 @@ room		= $2400
 room_end	= room+$aa0
 orbs		= room_end
 
-zp_tmpx 	= $50
-zp_tmpy 	= $51
-zp_roomno	= $52
+zp_tmpx 	= $70
+zp_tmpy 	= $71
+zp_roomno	= $72
 
-zp_playerx 	= $53
-zp_playery 	= $54
-zp_playerdir	= $55
-zp_tmpdir	= $56
-zp_currentforce	= $57 ; what directions any force tile under the player permits
-zp_tmpindex	= $58
-zp_tmpx2 	= $59
-zp_tmpy2 	= $5a
-zp_dxdy 	= $5b
-zp_temp		= $5c
+zp_playerx 	= $73
+zp_playery 	= $74
+zp_playerdir	= $75
+zp_tmpdir	= $76
+zp_currentforce	= $77 ; what directions any force tile under the player permits
+zp_tmpindex	= $78
+zp_tmpx2 	= $79
+zp_tmpy2 	= $7a
+zp_dxdy 	= $7b
+zp_temp		= $7c
 	
 ; pre-initialized zero page
 zp=$0
 tilelinetab_zp=zp+0 ; must be 32-byte aligned
-zp_dirtablex = zp+$2c
-zp_dirtabley = zp+$35
-zp_dir2_to_offset = zp+$3e
-
+zp_dirtablex = zp+$4e
+zp_dirtabley = zp+$57
+;zp_dir2_to_offset = zp+$60
 
 ;CPU 1
 	ORG $1100
@@ -771,6 +762,7 @@ ENDIF
 	INCLUDE "map.s"
 	INCLUDE "zap.s"
 ; this is for orbs adjusting walls  	
+IF 0
 .fill
 {
 	txa
@@ -821,6 +813,92 @@ ENDIF
 	tax
 	rts
 }
+ELSE
+; X,Y reversed coords
+.fill
+{
+FILL_STACK_SIZE=$60
+set_array_x=$100+FILL_STACK_SIZE
+set_array_y=$100+FILL_STACK_SIZE*2
+	; zp_tmpcount is last array index used
+	sty set_array_x
+	stx set_array_y
+	lda #$ff
+	sta zp_temp
+	bne skip ;always
+.loop
+	; pos = open_set.pop()
+	ldx zp_temp
+	bmi done
+	dec zp_temp
+	ldy set_array_x,X
+	lda set_array_y,X
+	tax
+	sty zp_tmpx
+	stx zp_tmpy
+.skip
+	; fb[pos] = b
+	jsr get_tile_ptr_and_index
+	sta tmp2+1
+	sta tmp3+1
+	sty ytmp+1
+	sta tmp4+1
+IF 0;DEBUG
+	sta tmp5+1
+.tmp5	lda ($00),Y
+	cmp fill_from+1
+	beq ok
+	brk
+.ok
+ENDIF	
+.*fill_to
+	lda #0
+.tmp2	sta ($00),Y
+	ldx zp_tmpx
+	ldy zp_tmpy
+	jsr plot
+	; for npos in neighbours(pos):
+	ldx #7
+.neighloop
+	; if fb[npos] == a:
+.ytmp
+	lda #$ee
+	clc
+	adc dirtable_offset,X
+	tay
+.tmp3	lda ($00),Y
+.*fill_from
+	cmp #0
+	bne no
+
+	lda fill_to+1
+.tmp4	sta ($00),Y
+	; open_set.append(npos)
+	inc zp_temp
+	ldy zp_temp
+IF 0;DEBUG
+	cpy #FILL_STACK_SIZE
+	bcc ok2
+	brk
+.ok2
+ENDIF
+	lda zp_tmpx
+	clc
+	adc zp_dirtablex,X
+	sta set_array_x,Y
+	lda zp_tmpy
+	clc
+	adc zp_dirtabley,X
+	sta set_array_y,Y
+.no
+	dex
+	bpl neighloop
+	bmi loop ; always
+
+.done
+	rts
+}
+ENDIF
 
 .end_turn
 	;lda #7
@@ -1037,10 +1115,11 @@ ENDIF
 }
 
 ; X,Y reversed coords. returns: ptr to zp table in A, index into table in Y
-;
-; The idea here is that Y is close-ish to 128, allowing you to investigate
-; any of the eight surrounding tiles by modifying Y rather than having to
-; call a function multiple times.
+; No bounds checking.
+; The idea here is that Y is close-ish to 128 (specifically between 80 and 160),
+; allowing you to investigate any of the eight surrounding tiles by modifying
+; Y rather than having to call a function multiple times.
+; Why reversed coords?  Otherwise the index we need in Y would end up in X.
 
 .get_tile_ptr_and_index
 {
@@ -1049,11 +1128,11 @@ ENDIF
 	;bcs outside
 	tya
 	asl a
-	clc
-	adc #40*2+2
+	adc #40*2+2 ; carry always clear
 	tay
 	inx
 	txa
+IF 0
 	lsr a
 	bcc even
 	tya
@@ -1064,6 +1143,17 @@ ENDIF
 .even
 	asl a
 	;ora #tilelinetab_zp
+IF 0;DEBUG
+	cpy #79
+	bcs ok
+	cpy #160
+	bcc ok
+	brk
+.ok
+ENDIF
+ELSE
+	asl a
+ENDIF
 	rts
 }
 
@@ -1122,8 +1212,10 @@ INCLUDE "sprite.s"
 	EQUB %11110001, %11111000, %01111100, %00111110
 	EQUB %00011111, %10001111, %11000111, %11100011
 .dirtable_offset
-	EQUB (-40-1)*2-1,(-40)*2-1, (-40+1)*2-1, (1)*2-1
-	EQUB (+40+1)*2-1,(+40)*2-1, (+40-1)*2-1, (-1)*2-1
+	;EQUB (-40-1)*2-1,(-40)*2-1, (-40+1)*2-1, (1)*2-1
+	;EQUB (+40+1)*2-1,(+40)*2-1, (+40-1)*2-1, (-1)*2-1
+	EQUB (-40-1)*2,(-40)*2, (-40+1)*2, (1)*2
+	EQUB (+40+1)*2,(+40)*2, (+40-1)*2, (-1)*2
 .dir2_to_dir
 	EQUB 99,3,7,99, 5,4,6,99, 1,2,0
 .dir2_to_offset
@@ -1202,10 +1294,16 @@ ENDIF
 
 .zp_stuff
 .tilelinetab_copy
+IF 0
 ; only even lines get a table entry
 FOR I,0,32,2
     EQUW ((I-1)*40*2+room)
 NEXT
+ELSE
+FOR I,0,33,1
+    EQUW ((I-1)*40*2+room)
+NEXT
+ENDIF
 .get_crunched_byte_copy
 {
 	lda $eeee

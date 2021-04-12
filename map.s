@@ -158,11 +158,11 @@ ENDIF
 	skip 25
 
 
-zp_tmpchar=$59
-zp_screen_hoffset=$5a
-zp_linecount=$5b
-zp_screenptr=$5c
-zp_tmproomno=$5e
+zp_tmpchar=$79
+zp_screen_hoffset=$7a
+zp_linecount=$7b
+zp_screenptr=$7c
+zp_tmproomno=$7e
 .exit rts
 ; we only need 280x256 pixel screen = 17920 bytes
 ; rooms are 40x34 pixels (38x32 plus border)

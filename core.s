@@ -2,7 +2,7 @@
 rowmult=$380
 levelno=$3c0
 namestash=$3c1
-get_crunched_byte = $22
+get_crunched_byte = $44
 
 ; global defines
 SMALL_SCREEN=0 ; saves 1K of screen space, model B only

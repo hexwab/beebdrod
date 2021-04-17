@@ -36,6 +36,20 @@ with Image.open(sys.argv[1]) as image:
             0x16: (2,1), #
             0x17: (6,4), #scroll
             0x18: (2,2), #orb
+
+            0x19: (21,0), #snake EW
+            0x1a: (22,1), #snake NS
+            0x1b: (23,1), #snake SE
+            0x1c: (22,0), #snake SW
+            0x1d: (22,2), #snake NE
+            0x1e: (23,2), #snake SW
+            0x1f: (25,1), #snake tail S
+            0x20: (20,0), #snake tail W
+            0x21: (25,0), #snake tail N
+            0x22: (24,1), #snake tail E
+
+            0x23: (20,3), #tar
+
             0x24: (14,5), #checkpoint
 
             0x42: (0,7), # Beethro NE

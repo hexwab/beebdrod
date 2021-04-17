@@ -65,6 +65,7 @@ room		= $2400
 room_end	= room+$aa0
 orbs		= room_end
 
+zp_tileptr	= $6e
 zp_tmpx 	= $70
 zp_tmpy 	= $71
 zp_roomno	= $72
@@ -208,13 +209,13 @@ ENDIF
 
 .restart_room
 .restartx
-	lda #0
+	lda #OVERB
 	sta zp_playerx
 .restarty
-	lda #0
+	lda #OVERB
 	sta zp_playery
 .restartdir
-	lda #0
+	lda #OVERB
 	sta zp_playerdir
 
 .init_room
@@ -246,7 +247,7 @@ ENDIF
 	beq orbdone
 .orbloop
 	dex
-.orbptr	lda $eeee,X
+.orbptr	lda OVERW,X
 	sta orbs,X
 	cpx #0
 	bne orbloop
@@ -262,9 +263,8 @@ ENDIF
 	; this may not otherwise be the case if there was a
 	; crumbly wall on the border
 	jsr get_tile_ptr_and_index
-	sta tmp+1
 	lda #$01
-.tmp	sta ($00),Y
+	sta (zp_tileptr),Y
 
 	jsr plot_entire_room
 	jsr check_sword
@@ -509,9 +509,8 @@ ENDIF
 	ldy zp_tmpx
 	ldx zp_tmpy
 	jsr get_tile_ptr_and_index
-	sta tmp+1
 	lda #$01
-.tmp	sta ($00),Y
+	sta (zp_tileptr),Y
 	ldx zp_tmpx
 	ldy zp_tmpy
 	jmp plot_with_bounds_check
@@ -524,10 +523,9 @@ ENDIF
 	ldy zp_tmpx
 	ldx zp_tmpy
 	jsr get_tile_ptr_and_index
-	sta tmp+1
 	iny
 	lda #$00
-.tmp	sta ($00),Y
+.tmp	sta (zp_tileptr),Y
 	ldx zp_tmpx
 	ldy zp_tmpy
 	jmp plot
@@ -584,9 +582,8 @@ ENDIF
 	stx zp_tmpy
 	jsr zap_to
 	jsr get_tile
-	stx fill_from+1
 .orb_type
-	lda #0
+	lda #OVERB
 	and #3
 	cmp #1
 	beq orb_type_toggle
@@ -630,7 +627,7 @@ ENDIF
 	sta tmp+1
 	tya
 	clc
-.tmp	adc #0
+.tmp	adc #OVERB
 	tay
 	bne orbloop ;always
 	
@@ -709,7 +706,7 @@ IF FANCY_BORDERS ; may need to disable for low-memory machines
 ENDIF
 	_print_string drawscrolltab,drawscrolltab_end
 IF FANCY_BORDERS
-	.ytmp	ldy #$ee
+.ytmp	ldy #OVERB
 ENDIF
 	ldx orbs+2,Y
 .scroll_loop
@@ -761,66 +758,14 @@ ENDIF
 	INCLUDE "text.s"
 	INCLUDE "map.s"
 	INCLUDE "zap.s"
-; this is for orbs adjusting walls  	
-IF 0
-.fill
-{
-	txa
-	pha
-	tya
-	pha
-	sty zp_tmpx
-	stx zp_tmpy
-	jsr get_tile_ptr_and_index
-	sta tmp2+1
-	sta tmp3+1
-.tmp2	lda ($00),Y
-.*fill_from
-	cmp #0
-	bne no
-.yes
-.*fill_to
-	lda #0
-.tmp3	sta ($00),Y
-	ldx zp_tmpx
-	ldy zp_tmpy
-	jsr plot
-.recurse
-	;; FIXME: this uses waaaay too much stack
-	ldy zp_tmpx
-	ldx zp_tmpy
-	dex
-	dey
-	jsr fill
-	iny
-	jsr fill
-	iny
-	jsr fill
-	inx
-	jsr fill
-	inx
-	jsr fill
-	dey
-	jsr fill
-	dey
-	jsr fill
-	dex
-	jsr fill
-.no
-	pla
-	tay
-	pla
-	tax
-	rts
-}
-ELSE
+; this is for orbs adjusting doors
 ; X,Y reversed coords
 .fill
 {
 FILL_STACK_SIZE=$60
-set_array_x=$100+FILL_STACK_SIZE
-set_array_y=$100+FILL_STACK_SIZE*2
-	; zp_tmpcount is last array index used
+set_array_x=$100
+set_array_y=$100+FILL_STACK_SIZE
+	; zp_temp is last array index used
 	sty set_array_x
 	stx set_array_y
 	lda #$ff
@@ -839,21 +784,10 @@ set_array_y=$100+FILL_STACK_SIZE*2
 .skip
 	; fb[pos] = b
 	jsr get_tile_ptr_and_index
-	sta tmp2+1
-	sta tmp3+1
 	sty ytmp+1
-	sta tmp4+1
-IF 0;DEBUG
-	sta tmp5+1
-.tmp5	lda ($00),Y
-	cmp fill_from+1
-	beq ok
-	brk
-.ok
-ENDIF	
 .*fill_to
-	lda #0
-.tmp2	sta ($00),Y
+	lda #OVERB
+	sta (zp_tileptr),Y
 	ldx zp_tmpx
 	ldy zp_tmpy
 	jsr plot
@@ -862,26 +796,20 @@ ENDIF
 .neighloop
 	; if fb[npos] == a:
 .ytmp
-	lda #$ee
+	lda #OVERB
 	clc
 	adc dirtable_offset,X
 	tay
-.tmp3	lda ($00),Y
+	lda (zp_tileptr),Y
 .*fill_from
-	cmp #0
+	cmp #OVERB
 	bne no
 
 	lda fill_to+1
-.tmp4	sta ($00),Y
+.tmp4	sta (zp_tileptr),Y
 	; open_set.append(npos)
 	inc zp_temp
 	ldy zp_temp
-IF 0;DEBUG
-	cpy #FILL_STACK_SIZE
-	bcc ok2
-	brk
-.ok2
-ENDIF
 	lda zp_tmpx
 	clc
 	adc zp_dirtablex,X
@@ -898,7 +826,6 @@ ENDIF
 .done
 	rts
 }
-ENDIF
 
 .end_turn
 	;lda #7
@@ -918,12 +845,11 @@ ENDIF
 	ldy #1
 	sty zp_tmpx
 	jsr get_tile_ptr_and_index
-	sta tmp+1
 	iny
 	sty zp_tmpindex
 .loop
 .tmp
-	lda ($00),Y
+	lda (zp_tileptr),Y
 	sta $ffff
 	cmp #$66 ; FIXME
 	bne no
@@ -931,10 +857,6 @@ ENDIF
 	;lda #7
 	;jsr oswrch
 
-	lda tmp+1
-	sta tmp3+1
-	;sta tmp4+1
-	
 {	; get dx
 	lda zp_playerx
 	cmp zp_tmpx
@@ -974,7 +896,7 @@ ENDIF
 	clc
 	adc zp_tmpindex
 	tay
-.tmp3	lda ($00),Y
+	lda (zp_tileptr),Y
 	cmp #0
 	bne no
 
@@ -1042,17 +964,14 @@ ENDIF
 ; A ptr, Y old index, X new index
 .move_monster
 {
-	sta tmp+1
-	sta tmp2+1
-	sta tmp4+1
-.tmp	lda ($00),Y
+.tmp	lda (zp_tileptr),Y
 	sta tmp3+1
 	lda #0
-.tmp2	sta ($00),Y
+.tmp2	sta (zp_tileptr),Y
 	txa
 	tay
-.tmp3	lda #0
-.tmp4	sta ($00),Y
+.tmp3	lda #OVERB
+.tmp4	sta (zp_tileptr),Y
 	rts
 }
 
@@ -1072,7 +991,7 @@ ENDIF
 	ldx zp_tmpy
 .yloop
 .xstart
-	ldy #$ee
+	ldy #OVERB
 	sty zp_tmpx
 	jsr get_tile
 	sty zp_tmpindex ; +1
@@ -1093,11 +1012,11 @@ ENDIF
 	
 	inc zp_tmpx
 	ldy zp_tmpx
-.xend	cpy #$ee
+.xend	cpy #OVERB
 	bcc xloop
 	inc zp_tmpy
 	ldx zp_tmpy
-.yend	cpx #$ee
+.yend	cpx #OVERB
 	bcc yloop
 IF 0
 ; print room number, @-Z
@@ -1131,29 +1050,10 @@ ENDIF
 	adc #40*2+2 ; carry always clear
 	tay
 	inx
-	txa
-IF 0
-	lsr a
-	bcc even
-	tya
-	adc #40*2-1 ; carry is set
-	tay
-	txa
-	lsr a
-.even
-	asl a
-	;ora #tilelinetab_zp
-IF 0;DEBUG
-	cpy #79
-	bcs ok
-	cpy #160
-	bcc ok
-	brk
-.ok
-ENDIF
-ELSE
-	asl a
-ENDIF
+	lda tileptr_lo,X
+	sta zp_tileptr
+	lda tileptr_hi,X
+	sta zp_tileptr+1
 	rts
 }
 
@@ -1167,13 +1067,12 @@ ENDIF
 .get_tile
 {
 	jsr get_tile_ptr_and_index
-	sta tmp+1
-	sta tmp2+1
 .*get_last_tile
-.tmp	lda ($00),Y
+	lda (zp_tileptr),Y
 	iny
 	tax
-.tmp2	lda ($00),Y
+.*get_last_tile_single
+	lda (zp_tileptr),Y
 	rts
 }
 
@@ -1220,6 +1119,16 @@ INCLUDE "sprite.s"
 	EQUB 99,3,7,99, 5,4,6,99, 1,2,0
 .dir2_to_offset
 	EQUB 0,2,-2,0, 80,82,78,0, -80,-78,-82 
+
+.tileptr_lo
+	FOR I,0,33,1
+	EQUB <((I-1)*40*2+room)
+	NEXT
+.tileptr_hi
+	FOR I,0,33,1
+	EQUB >((I-1)*40*2+room)
+	NEXT
+	
 
 ;INCLUDE "exo.s"
 
@@ -1306,7 +1215,7 @@ NEXT
 ENDIF
 .get_crunched_byte_copy
 {
-	lda $eeee
+	lda OVERW
         inc INPOS
         bne s0a
         inc INPOS+1

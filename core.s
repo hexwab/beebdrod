@@ -4,6 +4,10 @@ levelno=$3c0
 namestash=$3c1
 get_crunched_byte = $44
 
+; values that are overwritten before being used
+OVERB = $ee
+OVERW = $eeee
+
 ; global defines
 SMALL_SCREEN=0 ; saves 1K of screen space, model B only
 

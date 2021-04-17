@@ -234,7 +234,24 @@ while (<>) {
 	    }
 
 	    #monsters
+
+	    # types with maximum 
+	    # 0 roach
+	    # 1 roach queen
+	    # 2 roach egg
+	    # 3 goblin (22, L14,2E)
+	    # 4 neather
+	    # 5 wraithwing (55, L14:1N2E)
+	    # 6 eye (93, L5:1N2W)
+	    # 7 snake (16, L18:1N1E)
+	    # 8 tar mother
+	    # 9 tar baby
+	    # 10 brain
+	    # 11 mimic
+	    # 12 spider
+	    
 	    my $mons='';
+	    my %montypes=();
 	    if ($monsters[$r]) {
 		my $nmon=scalar(@{$monsters[$r]});
 		for my $monster (@{$monsters[$r]}) {
@@ -242,6 +259,7 @@ while (<>) {
 		    die if $unused;
 		    die $type if $type>15;
 		    die $first if $first!~/^[01]$/;
+		    $montypes{$type}++;
 		    die if $x<0 || $x>37 || $y<0 || $y>31;
 		    #$mons.=pack"C3",$x,$y,$type+(((12-$data[3])&7)<<4)+($first<<7);
 		    my $qq=$r2[40*($y+1)+($x+1)];
@@ -254,6 +272,7 @@ while (<>) {
 		    $r2[40*($y+1)+($x+1)] |= 0x66; # FIXME
 		}
 	    }
+	    print "montypes: ",Dumper \%montypes;
 	    $r2=pack"n*",@r2;
 	    die unless length($r2)==40*34*2;
 	    #orbs

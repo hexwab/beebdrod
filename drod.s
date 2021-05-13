@@ -630,111 +630,10 @@ ENDIF
 .tmp	adc #OVERB
 	tay
 	bne orbloop ;always
+}	
+	INCLUDE "scroll.s"
+
 	
-; player walked on a scroll
-.actually_scroll
-IF FANCY_BORDERS ; may need to disable for low-memory machines
-	sty ytmp+1
-.draw_scroll_border
-	lda #$58 ; scroll NW
-	ldx #6
-	ldy #7
-	jsr plot_masked_inline
-	lda #$5a ; scroll NE
-	ldx #32
-	ldy #7
-	jsr plot_masked_inline
-	lda #$5d ; scroll SW
-	ldx #6
-	ldy #23
-	jsr plot_masked_inline
-	lda #$5f ; scroll SE
-	ldx #32
-	ldy #23
-	jsr plot_masked_inline
-.top
-	ldx #7
-	stx zp_tmpx
-.toploop
-	lda #$59 ; scroll N
-	ldy #7
-	jsr plot_masked_inline
-	ldx zp_tmpx
-	inx
-	stx zp_tmpx
-	cpx #32
-	bne toploop
-
-.bottom
-	ldx #7
-	stx zp_tmpx
-.bottomloop
-	lda #$5e ; scroll S
-	ldy #23
-	jsr plot_masked_inline
-	ldx zp_tmpx
-	inx
-	stx zp_tmpx
-	cpx #32
-	bne bottomloop
-
-.left
-	ldy #8
-	sty zp_tmpy
-.leftloop
-	lda #$5b ; scroll W
-	ldx #6
-	jsr plot_masked_inline
-	ldy zp_tmpy
-	iny
-	sty zp_tmpy
-	cpy #23
-	bne leftloop
-
-.right
-	ldy #8
-	sty zp_tmpy
-.rightloop
-	lda #$5c ; scroll E
-	ldx #32
-	jsr plot_masked_inline
-	ldy zp_tmpy
-	iny
-	sty zp_tmpy
-	cpy #23
-	bne rightloop
-ENDIF
-	_print_string drawscrolltab,drawscrolltab_end
-IF FANCY_BORDERS
-.ytmp	ldy #OVERB
-ENDIF
-	ldx orbs+2,Y
-.scroll_loop
-	lda orbs+3,Y
-	jsr packed_wrch
-	iny
-	dex
-	cpx #3
-	bne scroll_loop
-	jsr osrdch ; wait for key
-	lda #26
-	jsr oswrch
-	ldx #7
-	stx zp_tmpy
-	ldx #6
-	lda #33
-	ldy #25
-	jmp plot_some_room ; erase scroll
-.drawscrolltab
-	equb 17,131,17,0
-IF FANCY_BORDERS=0
-	equb 28,6,23,32,7,12	
-ENDIF
-	equb 28,7,22,31,8,12
-	
-.drawscrolltab_end
-}
-
 ; won level. draw animation and load next level
 .dostairs
 {	
@@ -755,6 +654,9 @@ ENDIF
 .run_intro_cmd
 	equs "/intro",13
 }
+MINI=1	
+	INCLUDE "sprite.s"
+	INCLUDE "minifont.s"
 	INCLUDE "text.s"
 	INCLUDE "map.s"
 	INCLUDE "zap.s"
@@ -1104,7 +1006,6 @@ ENDIF
 	rts
 }
 
-INCLUDE "sprite.s"
 .bitmasktab
 	EQUB $80,$40,$20,$10,$08,$04,$02,$01
 .forcetab

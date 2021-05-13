@@ -1,10 +1,51 @@
+IF MINI=1
+.mini_oswrch
+	cmp #13
+	bne mini_real_oswrch
+.mini_newl
+	lda #32 ; padding hack
+	jsr mini_real_oswrch
+	lda #13
+	jsr mini_real_oswrch
+	bne mini_do_line ; always
+.mini_real_oswrch
+.stringptr
+	sta $100
+	inc stringptr+1
+	rts
+.mini_do_line
+{
+	stx xtmp+1
+	sty ytmp+1
+	ldx $318
+	ldy $319
+	lda linetab_lo,Y
+	clc
+	adc mul16_lo,X
+	sta zp_mini_screenptr
+	lda linetab_hi,Y
+	adc mul16_hi,X
+	sta zp_mini_screenptr+1
+	jsr mini_write_line
+	lda #0
+	sta stringptr+1
+	inc $319
+.xtmp	ldx #OVERB
+.ytmp	ldy #OVERB
+	rts
+}
+ENDIF
 ; A,X,Y preserved
 .packed_wrch
 {
 	bpl notspace
 	pha
 	lda #32
+IF MINI=1
+	jsr mini_oswrch
+ELSE
 	jsr oswrch
+ENDIF
 	pla
 .notspace
 	and #$7f
@@ -13,7 +54,11 @@
 	cmp #31
 	bcc token
 .do_osasci
+IF MINI=1
+	jmp mini_oswrch
+ELSE
 	jmp osasci
+ENDIF
 .token
 	sty ytmp+1
 	tay

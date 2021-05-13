@@ -139,7 +139,7 @@ ENDIF
 .s0a    rts
 }
 .get_crunched_byte_copy_end
-	
+MINI=0	
 INCLUDE "text.s"
 
 .intro_crunched

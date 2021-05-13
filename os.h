@@ -1,3 +1,4 @@
+osgbpb = $ffd1
 osrdch = $ffe0	
 osasci = $ffe3
 osnewl = $ffe7

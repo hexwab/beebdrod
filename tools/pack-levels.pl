@@ -312,10 +312,10 @@ while (<>) {
 		    }
 		    $text=~s/ It used.*//s if $id==10091; # hack for L3:1S
 		    use Text::Wrap;
+		    $Text::Wrap::unexpand=0;
 		    $Text::Wrap::columns=24;
+		    $Text::Wrap::separator="\r";
 		    $text=wrap('', '', $text);
-		    chomp $text;
-		    $text=~s/\n/\r/g;
 		    chomp $text;
 		    $text=~s/Open/\x00/g;
 		    $text=~s/Close/\x01/g;

@@ -26,6 +26,8 @@ map_tiles_temp_end = map_tiles_temp+40*34*2
 	ldx zp_roomno
 	lda level_coordtab,X
 	jsr print_map_offset
+	lda #13
+	jsr packed_wrch ; hack to force write
 	jsr draw_map_screen
 	jsr osrdch ; wait for key
 IF 0

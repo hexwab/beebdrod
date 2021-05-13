@@ -53,6 +53,7 @@ ENDMACRO
 }
 
 UNROLL_PLOT=1 ; about 20% faster
+ONLY_128_SPRITES=1
 
 ; X,Y coords, A sprite number
 .plot
@@ -63,11 +64,18 @@ UNROLL_PLOT=1 ; about 20% faster
 	sta last_sprite+1
 IF UNROLL_PLOT=0
 	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
 	and #$0f
+ENDIF
 	ora #>SPRTAB
 	sta src1+2
 
 	lda last_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
 	and #$f0
 	sta src1+1
 .same
@@ -89,12 +97,19 @@ IF UNROLL_PLOT=0
 	bpl loop
 ELSE
 	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
 	and #$0f
+ENDIF
 	ora #>SPRTAB
 	sta src1+2
 	sta src2+2
 
 	lda last_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
 	and #$f0
 	sta src1+1
 	ora #8
@@ -137,12 +152,19 @@ ENDIF
 	sta last_sprite+1
 
 	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
 	and #$0f
+ENDIF
 	ora #>SPRTAB
 	sta src1+2
 	sta src2+2
 
 	lda last_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
 	and #$f0
 	sta src1+1
 	sta src2+1
@@ -200,12 +222,19 @@ ENDIF
 	sta last_sprite+1
 
 	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
 	and #$0f
+ENDIF
 	ora #>SPRTAB
 	sta src1+2
 	sta src2+2
 
 	lda last_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
 	and #$f0
 	sta src1+1
 	sta src2+1
@@ -214,11 +243,18 @@ ENDIF
 .*background_sprite
 	lda #$ee
 	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
 	and #$0f
+ENDIF
 	ora #>SPRTAB
 	sta dst1+2
 
 	lda background_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
 	and #$f0
 	sta dst1+1
 

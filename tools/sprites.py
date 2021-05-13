@@ -92,8 +92,10 @@ with Image.open(sys.argv[1]) as image:
     }
 
     used = 0
-    for n in range(0,16):
-        for nn in range(0,256,16):
+    only_128_sprites=True
+
+    for n in range(0,8 if only_128_sprites else 16):
+        for nn in range(0,128 if only_128_sprites else 256,8 if only_128_sprites else 16):
             try:
                 srcx = 8*src[n+nn][0]
                 srcy = 8*src[n+nn][1]

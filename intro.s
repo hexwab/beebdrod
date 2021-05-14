@@ -6,9 +6,11 @@ nameptr=loc+75
 ptr=$81
 	INCLUDE "os.h"
 	INCLUDE "text.h"
+	INCLUDE "files.h"
 	INCLUDE "core.s"
 	org $2500
 .start
+IF 0	
 .load_core
 	ldx #<load_core_cmd
 	ldy #>load_core_cmd
@@ -23,7 +25,10 @@ ptr=$81
 	ldx #<intro_crunched
 	ldy #>intro_crunched
 	jsr decrunch
-
+ELSE
+	ldy #FILE_intro
+	jsr load_and_decrunch
+ENDIF
 	lda #10
 	sta $fe00
 	sta $fe01 ; cursor off
@@ -86,6 +91,7 @@ ENDIF
 }
 
 .load_level
+IF 0
 	; set filename
 	lda levelno
 	clc
@@ -106,12 +112,24 @@ ENDIF
 	ldx #<load_level_cmd
 	ldy #>load_level_cmd
 	jsr oscli
-
+ELSE
+	lda levelno
+	clc
+	adc #FILE_level01
+	tay
+	ldx #0
+	lda #$80
+	jsr load_file_to
+ENDIF
+	
 .run_game
+IF 0
 	ldx #<run_game_cmd
 	ldy #>run_game_cmd
 	jmp oscli
-
+ELSE
+	_chain FILE_code_exo, $1ca2 ; FIXME
+ENDIF
 .level_title_window
 	equb 26,17,128,12
 	equb 17,131,17,0,28,0,31,37,0,12,31,10,3
@@ -120,7 +138,7 @@ ENDIF
 .level_intro_window
 	equb 28,1,31,36,6,30
 .level_intro_window_end
-
+IF 0
 .load_level_cmd
 	equs "SRL.level"
 .level_file
@@ -130,6 +148,7 @@ ENDIF
 	equs "L.core",13
 .run_game_cmd
 	equs "/code",13
+
 .get_crunched_byte_copy
 {
 	lda $eeee
@@ -139,11 +158,12 @@ ENDIF
 .s0a    rts
 }
 .get_crunched_byte_copy_end
+ENDIF
 MINI=0	
 INCLUDE "text.s"
 
 .intro_crunched
-	INCBIN "intro"
+	;INCBIN "intro"
 
 
 ;INCLUDE "exo.s"

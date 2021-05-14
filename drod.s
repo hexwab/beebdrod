@@ -1132,7 +1132,7 @@ ENDIF
 .end
 
 SAVE "code", start, end, init
-IF 1
+IF 0
 PUTFILE "boot", "!BOOT", 0, 0
 PUTBASIC "drod.bas", "D"
 ;PUTBASIC "introtest.bas", "D"

@@ -29,6 +29,14 @@ levels-test:
 tiles: tiles.png tools/sprites.py
 	python3 tools/sprites.py tiles.png
 
-drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s sprite.s text.s minifont.s scroll.s tiles
+drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s sprite.s text.s minifont.s scroll.s tiles boot.s
+	perl makedisc.pl -f >files.h
 	beebasm -i intro.s -v >intro.txt
-	beebasm -i drod.s -do drod.ssd -opt 3 -v >out.txt
+	exomizer level -q -c -M256 dointro@0x2500 -o intro.exo
+	exomizer level -q -c -M256 tiles@0xa000 -o tiles.exo
+	exomizer level -q -c -M256 code@0x1100 -o code.exo
+	beebasm -i drod.s -v >out.txt
+	#beebasm -i drod.s -do drod.ssd -opt 3 -v >out.txt
+	beebasm -i boot.s -do boot.ssd -opt 2 -v >boot.txt
+	truncate -s 2560 boot.ssd
+	perl makedisc.pl <boot.ssd >tmp.ssd && mv tmp.ssd drod.ssd

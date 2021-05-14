@@ -15,6 +15,7 @@ INPOS = get_crunched_byte+1
 	ORG $400
 .core_start
 	INCLUDE "exo.s"
+	INCLUDE "fs.s"
 ; initialize waiting for A cs. A<127
 .delay_start
 	clc
@@ -44,4 +45,4 @@ ENDIF
 
 .core_end
 
-	SAVE "core",core_start,core_end
+;	SAVE "core",core_start,core_end

@@ -10,7 +10,7 @@ ptr=$81
 	INCLUDE "core.s"
 	org $2500
 .start
-IF 0	
+IF 0
 .load_core
 	ldx #<load_core_cmd
 	ldy #>load_core_cmd
@@ -29,9 +29,9 @@ ELSE
 	ldy #FILE_intro
 	jsr load_and_decrunch
 ENDIF
-	lda #10
-	sta $fe00
-	sta $fe01 ; cursor off
+	;lda #10
+	;sta $fe00
+	;sta $fe01 ; cursor off
 	lda #21
 	ldx #0
 	jsr osbyte ; flush keyboard buffer

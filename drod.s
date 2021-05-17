@@ -1039,8 +1039,6 @@ ENDIF
 	ldx #$ff
 	txs
 	lda #4
-	sta $f4
-	sta $fe30
 	ldx #1
 	jsr $fff4
 .init_zp

@@ -19,7 +19,7 @@ INPOS = get_crunched_byte+1
 ; initialize waiting for A cs. A<127
 .delay_start
 	clc
-	adc $2a0
+.*t2a0_1	adc $2a0
 	sta delexp+1
 	rts
 ; wait for at least A cs
@@ -30,7 +30,7 @@ INPOS = get_crunched_byte+1
 .delexp
 {	lda #$ee
 .waitloop
-	cmp $2a0
+.*t2a0_2	cmp $2a0
 	bpl waitloop
 	rts
 }

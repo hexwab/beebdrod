@@ -2,6 +2,7 @@ DEBUG=1
 
 INCLUDE "text.h"
 INCLUDE "core.s"
+INCLUDE "files.h"
 INCLUDE "os.h"
 
 IF SMALL_SCREEN
@@ -648,11 +649,8 @@ ENDIF
 	beq stairloop
 .done
 	inc levelno
-	ldx #<run_intro_cmd
-	ldy #>run_intro_cmd
-	jmp oscli
-.run_intro_cmd
-	equs "/intro",13
+	ldy #FILE_intro_exo
+	jmp chain
 }
 MINI=1	
 	INCLUDE "sprite.s"
@@ -1129,6 +1127,8 @@ ENDIF
 .zp_stuff_end
 .end
 
+PRINT "load=",~start
+PRINT "exec=",~init
 SAVE "code", start, end, init
 IF 0
 PUTFILE "boot", "!BOOT", 0, 0

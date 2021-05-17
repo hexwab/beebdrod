@@ -10,6 +10,7 @@ ptr=$81
 	INCLUDE "core.s"
 	org $2500
 .start
+.init
 IF 0
 .load_core
 	ldx #<load_core_cmd
@@ -128,7 +129,8 @@ IF 0
 	ldy #>run_game_cmd
 	jmp oscli
 ELSE
-	_chain FILE_code_exo, $1ca2 ; FIXME
+	ldy #FILE_code_exo
+	jmp chain
 ENDIF
 .level_title_window
 	equb 26,17,128,12
@@ -165,6 +167,8 @@ INCLUDE "text.s"
 .intro_crunched
 	;INCBIN "intro"
 
+PRINT "load=",~start
+PRINT "exec=",~init
 
 ;INCLUDE "exo.s"
 .end

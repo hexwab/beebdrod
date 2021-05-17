@@ -64,20 +64,20 @@ zp_fs_tmphi=$9f
 }
 BUFOFF=secbufptr+1
 
-MACRO _chain file,addr
-	ldy #file
-	lda #>(addr-1)
+.chain
+	jsr load_and_init_decrunch
+	jsr fs_get_byte
 	pha
-	lda #<(addr-1)
+	jsr fs_get_byte
 	pha
-	jmp load_and_decrunch
-ENDMACRO
-	; cat in Y
+	jmp load_and_decrunch2
 .load_and_decrunch
 	jsr load_and_init_decrunch
+.load_and_decrunch2
 	ldx #3
 	jmp decrunch2
 	
+	; cat in Y
 .load_and_init_decrunch
 {
 	jsr get_from_cat

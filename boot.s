@@ -21,9 +21,8 @@
 	ldy #FILE_tiles_exo
 	jsr load_and_decrunch
 	jsr osrdch
-	ldy #FILE_intro_exo
-	jsr load_and_decrunch
-	jmp $2500
+	ldy FILE_intro_exo
+	jmp chain
 .screen_setup
 	equb 22,1,19,2,5,0,0,0,23,1,0,0,0,0,0,0,0,0
 .screen_setup_end

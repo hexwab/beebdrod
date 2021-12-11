@@ -1,6 +1,6 @@
 ; tweakables
 LAST_FOUR=1 ; include ASCII 123-126 ("{","|", "}", "~")
-MASTER=0
+;MASTER=0 ; defined elsewhere
 WIDE=1 ; allow >256-byte lines
 COLOURS=4 ; what screen mode we're targeting
 OS_120=0

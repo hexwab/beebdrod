@@ -130,8 +130,12 @@ zp_dirtabley = zp+$57
 	lda #8
 	bit zp_playerdir
 	beq ok
+IF MASTER
+	stz zp_playerdir
+ELSE
 	lda #0
 	sta zp_playerdir
+ENDIF	
 .ok	jsr check_sword
 	jmp end_turn
 }
@@ -374,6 +378,8 @@ ENDIF
 	beq fail
 	cpx #$18 ; orb
 	beq fail
+	cmp #$23 ; tar
+	beq fail
 	cpx #$03 ; stairs
 	bne notstairs
 	jmp dostairs
@@ -420,10 +426,10 @@ ENDIF
 	jmp end_turn
 .fail
 .tmp_playerx
-	lda #0
+	lda #OVERB
 	sta zp_playerx
 .tmp_playery
-	lda #0
+	lda #OVERB
 	sta zp_playery
 	jmp end_turn
 
@@ -434,8 +440,12 @@ ENDIF
 	lda #$f8 ;#$f0
 	bne traverse ;always
 .movesouth
+IF MASTER
+	stz zp_playery
+ELSE
 	lda #0
 	sta zp_playery
+ENDIF
 .*movesouth_d
 	lda #8 ;#$10
 	bne traverse ;always
@@ -446,8 +456,12 @@ ENDIF
 	lda #$ff
 	bne traverse ;always
 .moveeast
+IF MASTER
+	stz zp_playerx
+ELSE
 	lda #0
 	sta zp_playerx
+ENDIF
 .*moveeast_d
 	lda #$01
 }
@@ -519,119 +533,70 @@ ENDIF
 .notcrumbly
 	cmp #$66 ; FIXME
 	bne notmonster
-	; kill monster
+.monster
+.kill_tile
 {
+	; replace transp with empty
 	ldy zp_tmpx
 	ldx zp_tmpy
-	jsr get_tile_ptr_and_index
-	iny
+	jsr get_tile
 	lda #$00
 .tmp	sta (zp_tileptr),Y
-	ldx zp_tmpx
-	ldy zp_tmpy
-	jmp plot
+	jmp plot_from_tile_with_special
 }
 	
 .notmonster
+	cmp #$3c ; baby
+	beq monster
+	cmp #$23
+	bne nottar
+	; kill tar
+	jsr tar_get_corner
+	bcc nottar
+	jsr kill_tile
+IF 0
+	dec zp_tmpx
+	jsr tar_update ; left
+	inc zp_tmpx
+	inc zp_tmpy
+	jsr tar_update ; up
+	dec zp_tmpy
+	inc zp_tmpx
+	jsr tar_update ; right
+	dec zp_tmpx
+	dec zp_tmpy
+	jmp tar_update ; down
+ELSE
+	dec zp_tmpx
+	jsr tar_real_update ; do it twice
+.tar_real_update
+{	jsr tar_update ; W
+	inc zp_tmpy
+	jsr tar_update ; NW
+	inc zp_tmpx
+	jsr tar_update ; N
+	inc zp_tmpx
+	jsr tar_update ; NE
+	dec zp_tmpy
+	jsr tar_update ; E
+	dec zp_tmpy
+	jsr tar_update ; SE
+	dec zp_tmpx
+	jsr tar_update ; S
+	dec zp_tmpx
+	jsr tar_update ; SW
+	inc zp_tmpy
+	rts
+}
+ENDIF	
+.nottar
 	rts
 
 ; skip past scroll text (stored along with the orbs)
 .skip_scroll
 	lda orbs+2,Y
 	bne orb_skip_a ;always
-
-; activate the orb at coordinates zp_tmpx/zp_tmpy
-; this is either actually an orb we hit with our sword
-; or a scroll we just walked over
-.orb
-{
-	ldy #0
-.orbloop
-	lda orbs,Y
-	php
-	and #$3f
-	cmp zp_tmpx
-	bne no
-	lda orbs+1,Y
-	lsr a
-	lsr a
-	cmp zp_tmpy
-	bne no
-	sty zp_tmpindex
-.do_orb
-{
-	plp
-	bmi actually_scroll
-	jsr zap_start
-; loop over targets for this orb
-.do_orb_loop
-	ldy zp_tmpindex
-	lda orbs+3,Y
-	sta orb_type+1
-	lsr a
-	lsr a
-	tax
-	lda orbs+2,Y
-	php
-	iny
-	iny
-	sty zp_tmpindex
-	and #$7f
-	tay
-
-	sty zp_tmpx
-	stx zp_tmpy
-	jsr zap_to
-	jsr get_tile
-.orb_type
-	lda #OVERB
-	and #3
-	cmp #1
-	beq orb_type_toggle
-	cmp #2
-	beq orb_type_open
-	;cmp #3
-	;beq orb_type_close
-	;brk
-.orb_type_close
-	cpx #$0a
-	bne skip
-	beq done_orb_type
-.orb_type_open
-	cpx #$09
-	bne skip
-.orb_type_toggle
-.done_orb_type
-	stx fill_from+1
-	txa
-	eor #$03
-	sta fill_to+1
-	ldy zp_tmpx
-	ldx zp_tmpy
-	jsr fill
-.skip
-	plp
-	bpl do_orb_loop
-	jmp zap_plot
-	;rts
-}
-; not this orb
-.no
-	plp
-	bmi skip_scroll
-	lda orbs+1,Y
-	and #3
-	clc
-	adc #1+1
-	asl a
-.*orb_skip_a
-	sta tmp+1
-	tya
-	clc
-.tmp	adc #OVERB
-	tay
-	bne orbloop ;always
-}	
+	INCLUDE "orb.s"	
 	INCLUDE "scroll.s"
 
 	
@@ -640,7 +605,7 @@ ENDIF
 {	
 .stairloop
 	jsr draw_player
-	lda #40
+	lda #30
 	jsr delay
 	jsr erase_player
 	inc zp_playery
@@ -658,6 +623,7 @@ MINI=1
 	INCLUDE "text.s"
 	INCLUDE "map.s"
 	INCLUDE "zap.s"
+	INCLUDE "tar.s"
 ; this is for orbs adjusting doors
 ; X,Y reversed coords
 .fill
@@ -847,6 +813,44 @@ set_array_y=$100+FILL_STACK_SIZE
 }
 	rts
 
+; in: zp_tmpx/zp_tmpy
+; out: A dir 0-7
+.get_dir_to_player
+{	
+{	; get dx
+	lda zp_playerx
+	cmp zp_tmpx
+	beq zero
+	bcc less
+.more
+	lda #1
+	bne done ;always
+.zero
+	lda #0
+	;beq done ;always
+	equb $2c
+.less
+	lda #2
+.done
+}
+{	; get dy
+	ldx zp_playery
+	cpx zp_tmpy
+	beq zero
+	bcc less
+.more
+	ora #4
+	bne done ;always
+.less
+	ora #8
+.zero
+.done
+}
+	tax
+	lda dir2_to_dir,X
+	rts
+}
+	
 IF 0
 ; coords in tmpx,tmpy, A dir
 .move_monster_full
@@ -906,9 +910,16 @@ ENDIF
 	iny
 	sty zp_tmpindex
 	inc zp_tmpindex
+IF INLINE_GET_TILE
+	lda (zp_tileptr),Y
+	iny
+	tax
+	lda (zp_tileptr),Y
+ELSE
 	jsr get_last_tile
+ENDIF
 .skip
-	jsr plot_from_tile
+	jsr plot_from_tile_with_special
 	
 	inc zp_tmpx
 	ldy zp_tmpx
@@ -971,11 +982,10 @@ ENDIF
 	lda (zp_tileptr),Y
 	iny
 	tax
-.*get_last_tile_single
 	lda (zp_tileptr),Y
 	rts
 }
-
+;UNUSED FIXME
 ; in: tmpx, tmpy, tmpdir. out: C set if blocked
 .blocked_by_arrow
 {	; first check start tile

@@ -220,6 +220,9 @@ while (<>) {
 		} elsif (($q&0xff) == 0x23) {
 		    # tar on something
 		    # leave alone
+		} elsif (($q&0xff) >= 0x19 && ($q&0xff) <= 0x22) {
+		    # snake on something
+		    # leave alone
 		} elsif (($q&0xff00) == 0xb00) {
 		    # trapdoor
 		    # FIXME
@@ -269,7 +272,16 @@ while (<>) {
 		    } else {
 			die sprintf("%d %4x",$type,$qq) if $qq&0xff;
 		    }
-		    $r2[40*($y+1)+($x+1)] |= 0x66; # FIXME
+		    if ($type==7) {
+			# snake head
+			$r2[40*($y+1)+($x+1)] = 0x2b+($dir-1)/2;
+		    } elsif ($type==8) {
+			# tar mother
+			$r2[40*($y+1)+($x+1)] = 0x63; # FIXME?
+		    } else {
+			# everything else
+			$r2[40*($y+1)+($x+1)] |= 0x66; # FIXME
+		    }
 		}
 	    }
 	    print "montypes: ",Dumper \%montypes;

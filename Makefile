@@ -29,7 +29,7 @@ levels-test:
 tiles: tiles.png tools/sprites.py
 	python3 tools/sprites.py tiles.png
 
-drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s sprite.s text.s minifont.s scroll.s tiles boot.s core.s
+drod.ssd: drod.s exo.s intro.s drod.bas map.s zap.s tar.s sprite.s text.s minifont.s scroll.s tiles boot.s swr.s core.s
 	perl makedisc.pl -f >files.h
 	beebasm -i intro.s -v >intro.txt
 	perl makechain.pl dointro intro.txt >intro.exo

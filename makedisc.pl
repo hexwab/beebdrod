@@ -46,8 +46,9 @@ my $disc=<>;
 substr($disc,CATLO,$nfiles,substr($cat,0,$nfiles));
 substr($disc,CATHI,$nfiles,substr($cat,$nfiles));
 my $off=0xa00;
+print STDERR "Index\tOffset\tLength\tName\n";
 for my $i (0..$nfiles-1) {
-    printf STDERR "%d\t%s\t%x\t%x\n", $i, $files[$i], $lengths[$i],$off;
+    printf STDERR "%d\t%x\t%x\t%s\n", $i, $off, $lengths[$i], $files[$i];
     $off+=$lengths[$i];
 }
 

@@ -30,6 +30,54 @@ ENDMACRO
 	sty zp_tmpx
 	stx zp_tmpy
 	jsr get_tile
+	; check for special tile types
+.*plot_from_tile_with_special
+	php
+	cpx #1
+	bne notfloor
+.floor
+	; checkered pattern for floor
+	pha
+	lda zp_tmpx
+	eor zp_tmpy
+	and #1
+	tax
+	pla
+.notfloor
+	cmp #$66 ; roach
+	bne notroach
+{ ; roach fixup
+	stx xtmp+1
+	jsr get_dir_to_player
+	ora #$68
+.xtmp	ldx #OVERB
+	plp
+	jmp plot_from_tile_always_masked_no_flags
+}	
+.notroach
+	cmp #$23
+	bne nottar
+{ ; tar fixup
+	stx xtmp+1
+	jsr tar_get_corner
+IF DEBUG
+	; should not be baby here
+	;bne ok
+	;brk
+.ok
+ENDIF
+	; hack: centre need not be transparent
+	cmp #$23
+	bne xtmp
+	plp
+	tax
+	lda #0
+	beq plot_from_tile ; always
+.xtmp
+	ldx #OVERB
+}
+.nottar
+	plp
 	; fall through
 }
 
@@ -38,6 +86,7 @@ ENDMACRO
 .plot_from_tile
 {
 	beq not_transp
+.*plot_from_tile_always_masked_no_flags
 	; plot tranparent over opaque
 	stx background_sprite+1
 	ldx zp_tmpx
@@ -52,7 +101,6 @@ ENDMACRO
 	; fall through
 }
 
-UNROLL_PLOT=1 ; about 20% faster
 ONLY_128_SPRITES=1
 
 ; X,Y coords, A sprite number

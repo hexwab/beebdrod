@@ -11,8 +11,9 @@ with Image.open(sys.argv[1]) as image:
     #print(outFilename)
     outFile = open(outFilename, "wb")
 
-    src = { 0x00: (6,0), # ??
-            0x01: (1,0), #blank
+    src = { #0x00: (6,0), # ??
+            0x00: (1,0), #blank
+            0x01: (1,1), #blank 2
             0x02: (0,0), #pit
             0x03: (3,0), #stairs
             0x04: (0,2), #wall
@@ -52,6 +53,25 @@ with Image.open(sys.argv[1]) as image:
 
             0x24: (14,5), #checkpoint
 
+            0x2b: (25,5), # snake head N
+            0x2c: (27,3), # snake head W
+            0x2d: (25,3), # snake head E
+            0x2e: (27,5), # snake head S
+
+            0x30: (18,11), # tar NW
+            0x31: (19,11), # tar N
+            0x32: (21,11), # tar NE
+            0x33: (18,12), # tar W
+            0x34: (21,12), # tar E
+            0x35: (18,13), # tar SW
+            0x36: (19,13), # tar S
+            0x37: (21,13), # tar SE
+            #0x38: (19,12), # tar mother left
+            #0x39: (20,12), # tar mother right
+            0x3c: (19,14), # tar baby
+
+            0x63: (19,12), # tar mother (==0x23 | 0x40)
+
             0x42: (0,7), # Beethro NE
             0x43: (2,6), # Beethro E
             0x44: (8,4), # Beethro SE
@@ -87,8 +107,15 @@ with Image.open(sys.argv[1]) as image:
             0x5e: (12,13),# scroll S
             0x5f: (13,13),# scroll SE
                         
-            0x66: (1,4), #roach (FIXME)
-
+            0x68: (1,10), #roach NW
+            0x69: (1,4), #roach N
+            0x6a: (2,10), #roach NE
+            0x6b: (2,9), #roach E
+            0x6c: (4,9), #roach SE
+            0x6d: (1,8), #roach S
+            0x6e: (3,9), #roach SW
+            0x6f: (0,9), #roach W
+    
     }
 
     used = 0

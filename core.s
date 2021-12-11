@@ -10,7 +10,13 @@ OVERW = $eeee
 
 ; global defines
 SMALL_SCREEN=0 ; saves 1K of screen space, model B only
-
+INLINE_GET_TILE=0 ; +3 bytes, -12 cycles
+UNROLL_PLOT=0 ; +22 bytes, about 20% faster
+MASTER=0
+IF MASTER
+	CPU 1
+ENDIF
+	
 INPOS = get_crunched_byte+1
 	ORG $400
 .core_start

@@ -2,6 +2,13 @@
 map_tiles_temp = $b000 ; FIXME
 map_tiles_temp_end = map_tiles_temp+40*34*2
 
+IF SMALL_SCREEN=1
+	; FIXME: are we doing narrower screen to free up space for map buffer?
+	LINELEN=$260
+ELSE
+	LINELEN=$280
+ENDIF
+
 ;map_draw_ptr = $
 ; one byte per room (max 25 per level)
 ; 00 = unexplored
@@ -11,6 +18,11 @@ map_tiles_temp_end = map_tiles_temp+40*34*2
 
 ; set up window
 {
+IF HWSCROLL
+	jsr hwscroll_screen_off
+	jsr hwscroll_reset
+	jsr hwscroll_set_6845
+ENDIF
 	ldx #0
 .loop
 	lda initmaptab,X
@@ -26,8 +38,39 @@ map_tiles_temp_end = map_tiles_temp+40*34*2
 	ldx zp_roomno
 	lda level_coordtab,X
 	jsr print_map_offset
+IF FANCY_BORDERS
+MAP_TEXT_POS = SCRSTART + LINELEN/2 ; middle of top line
+.map_draw_banner
+	
+.centre_map_text
+	; finish text, with padding hack
+	lda #32
+	jsr mini_real_oswrch
+	lda #0
+	jsr mini_real_oswrch
+	
+	; centre text	
+	jsr mini_get_width
+	; width{lo,hi} contain the width in pixels
+	; we want half that (/2) in bytes (/4) so divide by 8.
+	; but then each char is 8
+	lda #<MAP_TEXT_POS
+	sec
+	sbc zp_widthlo
+	and #$f8
+	ora #3 ; 3 pixels down
+	sta zp_mini_screenptr
+	lda #>MAP_TEXT_POS
+	sbc zp_widthhi
+	sta zp_mini_screenptr+1
+	jsr mini_write_line_with_reset
+ELSE
 	lda #13
 	jsr packed_wrch ; hack to force write
+ENDIF
+IF HWSCROLL
+	jsr hwscroll_screen_on
+ENDIF
 	jsr draw_map_screen
 	jsr osrdch ; wait for key
 IF 0
@@ -43,9 +86,27 @@ ENDIF
 	
 .initmaptab
 	;equb 28,3,2,35,0,12,31,1,1
+IF FANCY_BORDERS
+	;equb 26,20,12
+	equb 26,17,128,17,3,12
+	equb 31,4,0
+	equb 23,255,$07,$01,$07,$0f,$07,$0f,$07,$03,255
+	equb 10,8
+	equb 23,255,$01,$03,$07,$01,$00,$01,$03,$01,255
+	equb 31,35,0
+	equb 23,255,$e0,$f0,$f0,$e0,$f0,$80,$00,$c0,255
+	equb 10,8
+	equb 23,255,$e0,$f0,$f0,$e0,$80,$e0,$c0,$e0,255
+	equb 28,5,1,34,0,17,131,12
+	; blank two bottom rows, leaving 14 filled
+	equb 18,0,131,18,0,0
+	equb 25,77,<640,>640,<960,>960
+	equb 25,77,<640,>640,<964,>964
+ELSE
 	equb 26,17,128,17,3,12,31,3,0
+ENDIF
 .initmaptab_end
-	
+
 .print_level_name
 {	
 	ldx #0
@@ -84,7 +145,7 @@ IF 0
 	cli
 	rts
 ENDIF
-	
+
 ; offset (3:3) in A
 .print_map_offset
 {
@@ -155,9 +216,6 @@ ENDIF
 .done3
 	rts
 }
-
-.explored_array
-	skip 25
 
 
 zp_tmpchar=$79
@@ -318,12 +376,6 @@ MACRO y_to_screen_lo
 	EQUB (y AND 7)+(y DIV 8)*LINELEN
 ENDMACRO
 
-IF SMALL_SCREEN=1
-	; FIXME: are we doing narrower screen to free up space for map buffer?
-	LINELEN=$260
-ELSE
-	LINELEN=$280
-ENDIF
 .gridx_lo
 	FOR i,0,6,1
 	EQUB <(i*10*8)

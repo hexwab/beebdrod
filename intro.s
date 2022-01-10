@@ -11,28 +11,8 @@ ptr=$81
 	org $2500
 .start
 .init
-IF 0
-.load_core
-	ldx #<load_core_cmd
-	ldy #>load_core_cmd
-	jsr oscli
-{	ldx #get_crunched_byte_copy_end-get_crunched_byte_copy
-.loop
-	lda get_crunched_byte_copy,X
-	sta get_crunched_byte,X
-	dex
-	bpl loop
-}
-	ldx #<intro_crunched
-	ldy #>intro_crunched
-	jsr decrunch
-ELSE
 	ldy #FILE_intro
 	jsr load_and_decrunch
-ENDIF
-	;lda #10
-	;sta $fe00
-	;sta $fe01 ; cursor off
 	lda #21
 	ldx #0
 	jsr osbyte ; flush keyboard buffer
@@ -92,28 +72,6 @@ ENDIF
 }
 
 .load_level
-IF 0
-	; set filename
-	lda levelno
-	clc
-	adc #1
-{
-.loop
-	cmp #10
-	bcc done
-	inc level_file
-	sec
-	sbc #10
-	bpl loop ; always
-}
-.done
-	clc
-	adc #$30
-	sta level_file+1
-	ldx #<load_level_cmd
-	ldy #>load_level_cmd
-	jsr oscli
-ELSE
 	lda levelno
 	clc
 	adc #FILE_level01
@@ -121,17 +79,13 @@ ELSE
 	ldx #0
 	lda #$80
 	jsr load_file_to
-ENDIF
 	
 .run_game
-IF 0
-	ldx #<run_game_cmd
-	ldy #>run_game_cmd
-	jmp oscli
-ELSE
-	ldy #FILE_code_exo
+	lda #FILE_code_elk_exo
+	clc
+	adc systype
+	tay
 	jmp chain
-ENDIF
 .level_title_window
 	equb 26,17,128,12
 	equb 17,131,17,0,28,0,31,37,0,12,31,10,3
@@ -140,27 +94,6 @@ ENDIF
 .level_intro_window
 	equb 28,1,31,36,6,30
 .level_intro_window_end
-IF 0
-.load_level_cmd
-	equs "SRL.level"
-.level_file
-	equs "00 8000 4",13
-
-.load_core_cmd
-	equs "L.core",13
-.run_game_cmd
-	equs "/code",13
-
-.get_crunched_byte_copy
-{
-	lda $eeee
-        inc INPOS
-        bne s0a
-        inc INPOS+1
-.s0a    rts
-}
-.get_crunched_byte_copy_end
-ENDIF
 MINI=0	
 INCLUDE "text.s"
 

@@ -4,6 +4,7 @@ LAST_FOUR=1 ; include ASCII 123-126 ("{","|", "}", "~")
 WIDE=1 ; allow >256-byte lines
 COLOURS=4 ; what screen mode we're targeting
 OS_120=0
+VERT_UNALIGNED=1	
 zptmp=$80	
 zp_mini_chartmp=$80 ; font bitmap
 zp_mini_fontptr=$80	
@@ -14,6 +15,9 @@ zp_mini_linecount=$84 ; 0-7
 zp_mini_screenptr=$85 ; two bytes
 zp_mini_screenoff=$87 ; offset from start position
 zp_mini_stringptr=$88
+
+zp_widthlo=$80
+zp_widthhi=$81
 IF WIDE=1	
 zp_mini_screenhi_tmp=$89
 ENDIF	
@@ -172,6 +176,10 @@ ENDIF
 	inc zp_mini_screenptr
 	ldx zp_mini_linecount
 	inx
+IF VERT_UNALIGNED
+	bne fixup_alignment ;always
+.aligned
+ENDIF
 	cpx #8
 	bne lineloop
 IF MASTER=1
@@ -180,8 +188,55 @@ IF MASTER=1
 	sta $f4
 	sta $fe30
 ENDIF
+.done
 	rts
-	
+
+.fixup_alignment
+{
+	lda zp_mini_screenptr
+	and #7
+	bne aligned
+	lda zp_mini_screenptr
+	clc
+	adc #<(LINELEN-8)
+	sta zp_mini_screenptr
+	lda zp_mini_screenhi_tmp
+	adc #>(LINELEN-8)
+	sta zp_mini_screenhi_tmp
+	bcc aligned ;always
+}
+
+.*mini_get_width
+{
+	lda #0
+	sta zp_widthlo
+	sta zp_widthhi
+	ldx #0
+.loop
+	lda string,X
+	;sec
+	;sbc #32
+	;bmi done
+	beq done
+	inx
+	tay
+	lda charbitmap-32,Y
+	; popcount
+	ldy #0
+.poploop
+	lsr A
+	bcc no
+	iny
+.no	bne poploop ; always
+	tya
+	; C always clear here
+	adc zp_widthlo
+	sta zp_widthlo
+	bcc loop
+	inc zp_widthhi
+	bne loop ; always
+}	
+
 .charbitmap
 	equb %00000111 ;  
 	equb %00001100 ; !

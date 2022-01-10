@@ -45,9 +45,6 @@ YSIZE=32
 ; 09-14 force arrow
 ; 18 orb
 
-FANCY_BORDERS=1 ; +115 code bytes and 16 masked sprites=384 data bytes: 499 bytes total
-; may need to disable for low-memory machines
-
 LEVEL_HEADER_SIZE=5	
 MAXROOMS=25
 level		= $8000
@@ -62,7 +59,7 @@ level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 level_orblen    = level_tables+MAXROOMS*3
 
-room		= $2400
+room		= $2300
 room_end	= room+$aa0
 orbs		= room_end
 
@@ -81,7 +78,9 @@ zp_tmpx2 	= $79
 zp_tmpy2 	= $7a
 zp_dxdy 	= $7b
 zp_temp		= $7c
-	
+zp_temp2	= $7d
+zp_moved_dir	= $7e ; what direction the player moved last
+
 ; pre-initialized zero page
 zp=$0
 tilelinetab_zp=zp+0 ; must be 32-byte aligned
@@ -91,7 +90,7 @@ zp_dirtabley = zp+$57
 
 ;CPU 1
 	ORG $1100
-	GUARD $2200
+	GUARD $2300
 .start
 	jsr init_level
 .mainloop
@@ -210,6 +209,10 @@ ENDIF
 	sta zp_currentforce
 	ldy level_startroom
 	sty zp_roomno
+IF HWSCROLL
+	lda #0
+	sta came_from+1
+ENDIF
 	jmp init_room
 
 .restart_room
@@ -222,6 +225,10 @@ ENDIF
 .restartdir
 	lda #OVERB
 	sta zp_playerdir
+IF HWSCROLL
+	lda #0
+	sta came_from+1
+ENDIF
 
 .init_room
 {
@@ -246,18 +253,6 @@ ENDIF
 	lda #<room_end
 	jsr decrunch_to_no_header ; decompress tiles
 
-	; copy orbs
-	ldy zp_roomno
-	ldx level_orblen,Y
-	beq orbdone
-.orbloop
-	dex
-.orbptr	lda OVERW,X
-	sta orbs,X
-	cpx #0
-	bne orbloop
-.orbdone
-
 	ldy zp_playerx
 	sty restartx+1
 	ldx zp_playery
@@ -270,8 +265,24 @@ ENDIF
 	jsr get_tile_ptr_and_index
 	lda #$01
 	sta (zp_tileptr),Y
-
+IF HWSCROLL
+	jsr hwscroll
+ELSE
 	jsr plot_entire_room
+ENDIF
+	; copy orbs
+	; do this *after* hwscroll as orb buffer and scroll buffer overlap
+	ldy zp_roomno
+	ldx level_orblen,Y
+	beq orbdone
+.orbloop
+	dex
+.orbptr	lda OVERW,X
+	sta orbs,X
+	cpx #0
+	bne orbloop
+.orbdone
+
 	jsr check_sword
 	jsr draw_player
 	rts
@@ -353,6 +364,7 @@ ENDIF
 	lda zp_playerx
 	sta tmp_playerx+1
 	ldx zp_tmpdir
+	stx zp_moved_dir
 	clc
 	adc zp_dirtablex,X
 	sta zp_playerx
@@ -368,11 +380,23 @@ ENDIF
 	sty zp_tmpindex
 	cpx #$04 ; wall
 	beq fail
+	cpx #$64 ; wall
+	beq fail
 	cpx #$02 ; pit
+	beq fail
+	cpx #$60 ; pit
+	beq fail
+	cpx #$61 ; pit
 	beq fail
 	cpx #$05 ; crumbly
 	beq fail
 	cpx #$0c ; wall2
+	beq fail
+	cpx #$65 ; wall2
+	beq fail
+	cpx #$66 ; wall2
+	beq fail
+	cpx #$67 ; wall2
 	beq fail
 	cpx #$09 ; closed yellow door
 	beq fail
@@ -431,6 +455,8 @@ ENDIF
 .tmp_playery
 	lda #OVERB
 	sta zp_playery
+	lda #255 ; no movement
+	sta zp_moved_dir
 	jmp end_turn
 
 .movenorth
@@ -446,7 +472,7 @@ ELSE
 	lda #0
 	sta zp_playery
 ENDIF
-.*movesouth_d
+.*movesouth_d	
 	lda #8 ;#$10
 	bne traverse ;always
 .movewest
@@ -469,6 +495,9 @@ ENDIF
 ; move one room, direction in A (3:3)
 .traverse
 {
+IF HWSCROLL
+	sta came_from+1
+ENDIF
 	ldx zp_roomno
 	clc
 	adc level_coordtab,X
@@ -485,23 +514,15 @@ IF DEBUG
 ENDIF
 	bne loop
 IF DEBUG
-.fail	equb $2c
+.fail	rts;equb $2c
 ENDIF
 .gotit
 	stx zp_roomno
 	jmp init_room
 }
-
-.check_sword
-IF 0
-	lda zp_tmpindex
-	ldx zp_playerdir
-	clc
-	adc dirtable_offset,X
-	tay
-	jsr get_last_tile
-ELSE
-	ldx zp_playerdir
+; direction in X
+.get_player_tile_with_direction
+{	
 	lda zp_playerx
 	clc
 	adc zp_dirtablex,X
@@ -512,8 +533,11 @@ ELSE
 	tax
 	sty zp_tmpx
 	stx zp_tmpy
-	jsr get_tile
-ENDIF
+	jmp get_tile
+}
+.check_sword
+	ldx zp_playerdir
+	jsr get_player_tile_with_direction
 	cpx #$18
 	beq orb
 .notorb
@@ -697,6 +721,8 @@ set_array_y=$100+FILL_STACK_SIZE
 	;lda #7
 	;jsr oswrch
 	;jsr move_monsters
+	jsr check_trapdoor
+	jsr redraw_roaches
 	jmp draw_player
 
 .move_monsters
@@ -716,7 +742,7 @@ set_array_y=$100+FILL_STACK_SIZE
 .loop
 .tmp
 	lda (zp_tileptr),Y
-	sta $ffff
+	;sta $ffff
 	cmp #$66 ; FIXME
 	bne no
 	; got one!
@@ -890,8 +916,8 @@ ENDIF
 	stx xstart+1
 	sta xend+1
 	sty yend+1
-	lda #19
-	jsr $fff4
+	;lda #19
+	;jsr $fff4
 	ldx zp_tmpy
 .yloop
 .xstart
@@ -943,8 +969,28 @@ IF 0
 ENDIF
 	rts
 }
-
-; X,Y reversed coords. returns: ptr to zp table in A, index into table in Y
+IF 1
+.get_tile_ptr_and_index_with_bounds
+{
+	; n=0, m=37 => 0<=X<=37?
+	clc
+	txa
+	adc #$FF-37
+	adc #37-0+1
+	bcs outside
+	; n=0, m=31 => 0<=Y<=31?
+	tya
+	adc #$FF-31
+	adc #31-0+1
+	bcs outside
+	
+	jsr get_tile_ptr_and_index
+	clc
+.outside
+	rts
+}
+ENDIF
+; X,Y reversed coords. returns: zp_tileptr set, index into table in Y
 ; No bounds checking.
 ; The idea here is that Y is close-ish to 128 (specifically between 80 and 160),
 ; allowing you to investigate any of the eight surrounding tiles by modifying
@@ -1014,6 +1060,111 @@ ENDIF
 	rts
 }
 
+.redraw_roaches
+{
+	;; redraw roaches around the player, so that they face the correct direction:
+	;       YYY
+	;       YYY
+	; XXXXXXZZZXXXXXX
+	; XXXXXXZ@ZXXXXXX
+	; XXXXXXZZZXXXXXX
+	;       YYY
+	;       YYY
+	; Z's get plotted twice, oh well
+; three Y rows
+{
+	ldx #31
+	stx zp_tmpy
+.yloop2
+	ldx zp_tmpy
+	ldy zp_playerx
+	dey
+	sty zp_tmpx
+	jsr get_tile_ptr_and_index ;_with_bounds
+	;bcs skip
+	iny
+	ldx #2
+.yloop1
+	lda (zp_tileptr),Y
+	cmp #$66 ; roach? (FIXME)
+	bne no
+	jsr do_roach
+.no
+	iny
+	iny
+	inc zp_tmpx
+	dex
+	bpl yloop1
+.skip	
+	dec zp_tmpy
+	bpl yloop2
+}
+; 3 X rows
+{
+	ldx zp_playery
+	dex
+	lda #2
+	sta zp_temp
+.xloop2
+	stx zp_tmpy
+	ldy #0
+	sty zp_tmpx
+	jsr get_tile_ptr_and_index ;_with_bounds
+	;bcs skip
+	iny
+	ldx #37
+.xloop1
+	lda (zp_tileptr),Y
+	cmp #$66 ; roach? (FIXME)
+	bne no
+	jsr do_roach
+.no
+	iny
+	iny
+	inc zp_tmpx
+	dex
+	bpl xloop1
+.skip
+	ldx zp_tmpy
+	inx
+	dec zp_temp
+	bpl xloop2
+}
+	rts
+.do_roach
+	stx xtmp+1
+	sty ytmp+1
+	dey
+	jsr get_last_tile
+	jsr plot_from_tile_with_special
+.xtmp	ldx #OVERB
+.ytmp	ldy #OVERB
+	rts
+}
+
+.check_trapdoor
+{
+	lda zp_moved_dir ; which direction we came from
+	eor #4 ; rotate 180 degrees
+	tax
+	jsr get_player_tile_with_direction
+	cpx #$0b ; trapdoor
+	bne no
+	dey
+	lda #$02
+	sta (zp_tileptr),Y ; replace with pit
+	; redraw tile and the two below
+	jsr redraw
+	inc zp_tmpy
+	jsr redraw
+	inc zp_tmpy
+.redraw	
+	ldx zp_tmpy
+	ldy zp_tmpx
+	jmp plot_tile_with_special
+.no	rts
+}
+	
 .bitmasktab
 	EQUB $80,$40,$20,$10,$08,$04,$02,$01
 .forcetab
@@ -1040,15 +1191,30 @@ ENDIF
 	
 
 ;INCLUDE "exo.s"
+INCLUDE "hwscroll.s"
 
+.abort
+{
+	cli
+	ldx #<flash
+	ldy #>flash
+	lda #12
+	jsr osword
+.halt	bne halt
+.flash	equb 0,10,0,0,0
+}
+	CLEAR $2300,$3000
+	GUARD $3000
 ; this can be overwritten at runtime
 .init
 {
 	ldx #$ff
 	txs
-	lda #4
-	ldx #1
-	jsr $fff4
+	; setup brk vector
+	lda #<abort
+	sta $202
+	lda #>abort
+	sta $203
 .init_zp
 {
 	ldy #zp_stuff_end-zp_stuff-1
@@ -1102,9 +1268,16 @@ IF 1
 }
 ENDIF
 ENDIF
+IF HWSCROLL
+	;lda #$60
+	;sta linetab_hi
+	;jsr hwscroll_set_linetab
+;	jsr hwscroll_set_6845
+	;jsr blank_3839
+ENDIF
 	jmp start
 .space
-	equb 26,31,13,28,"[Press SPACE]"
+	equb 26,31,13,28,"[Press SPACE]",19,1,1,0,0,0,19,2,4,0,0,0
 .space_end
 }
 

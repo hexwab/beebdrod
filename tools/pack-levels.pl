@@ -203,7 +203,9 @@ while (<>) {
 	    #      1 0a1d snake on open door
 
 	    my @r2=unpack"n*", $r2;
-	    for my $q (@r2) {
+	    for my $pos (0..$#r2) {
+	    for my $q ($r2[$pos]) { # alias
+	    #for my $q (@r2) { 
 		if (($q&0xff00) == 0x100) {
 		    # something on floor
 		    if (($q&0xff) >= 0xd && ($q&0xff) <= 0x18) {
@@ -234,8 +236,35 @@ while (<>) {
 		} else {
 		    die sprintf"%04x", $q;
 		}
+		if (($q&0xff00) == 0x400) {
+		    # wall
+		    # walls with walls below are 0x64 instead. crumbly counts as walls
+		    no warnings;
+		    my $qbelowhi = ($r2[$pos+40])>>8;
+		    #print "qbelowhi=$qbelowhi\n";
+		    if ($qbelowhi==4 || $qbelowhi==0x64 || $qbelowhi==5) {
+			$q = ($q&0xff)|0x6400;
+		    }
+		} elsif (($q&0xff00) == 0xc00) {
+		    # 2x2 pillar is 0c,65,66,67 depending on quadrant
+		    no warnings;
+		    my %pillars = map {$_=>1} (0xc,0x65,0x66,0x67);
+		    my $left = $pillars{($r2[$pos-1])>>8};
+		    my $down = $pillars{($r2[$pos+40])>>8};
+		    my $right = $pillars{($r2[$pos+1])>>8};
+		    my $up = $pillars{($r2[$pos-40])>>8};
+		    if ($right && $down) {
+			# top left. leave alone
+		    } elsif ($left && $down) {
+			$q = ($q&0xff)|0x6500; # top right
+		    } elsif ($right && $up) {
+			$q = ($q&0xff)|0x6600; # bottom left
+		    } elsif ($left && $up) {
+			$q = ($q&0xff)|0x6700; # bottom right
+		    }
+		}
 	    }
-
+	    }
 	    #monsters
 
 	    # types with maximum 

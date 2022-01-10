@@ -26,6 +26,7 @@ IF MINI=1
 	lda linetab_hi,Y
 	adc mul16_hi,X
 	sta zp_mini_screenptr+1
+.*mini_write_line_with_reset
 	jsr mini_write_line
 	lda #0
 	sta stringptr+1

@@ -8,9 +8,20 @@
 
 ; CHECKME: does OS linedrawing work?
 IF HWSCROLL
-
+INCLUDE "hw.h"
 ASSERT XRES=40
 ASSERT SCRSTART=$3000
+
+.hwscroll_screen_off
+{
+	lda #$f0
+	equb $2c
+.*hwscroll_screen_on
+	lda #$00
+	ldx #8
+	jmp hwscroll_write_reg
+}
+
 .hwscroll_addr_lo
 	equb 0
 .hwscroll_addr_hi
@@ -93,6 +104,7 @@ ENDIF
 	sta $fe01 ; screen start lo
 	lda zp_temp
 	inx
+.*hwscroll_write_reg
 	stx $fe00
 	sta $fe01 ; screen start hi
 	rts
@@ -427,6 +439,7 @@ ENDIF
 	bpl colloop
 	rts
 }
+IF 1
 .init_timer
 {
 	sei
@@ -450,7 +463,31 @@ VSYNC=$4dfe
 	;cli
 	rts
 }
-	
+ELSE
+.init_timer_no
+{
+	sei
+	lda #2
+.l	bit SYSVIA_IFR
+	beq l
+TIMER=$4670
+VSYNC=$4dfe	
+	lda #LO(TIMER)
+	sta USERVIA_T1CL
+	lda #HI(TIMER)
+	sta USERVIA_T1CH
+	lda #LO(VSYNC)
+	sta USERVIA_T1LL
+	lda #HI(VSYNC)
+	sta USERVIA_T1LH
+	lda #%01000000
+	sta USERVIA_ACR
+	;lda #0 ;%11000000 ; was 0
+	;sta USERVIA_IER
+	;cli
+	rts
+}
+ENDIF	
 ; this trashes the orb buffer so be sure to reload afterwards
 line0buffer=$2da0
 .linetab_lo_temp

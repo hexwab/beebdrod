@@ -4,4 +4,4 @@
 	INCLUDE "heads.out.s"
 .end
 
-SAVE "heads",start,$c000 ;end
+SAVE "heads",start,end

@@ -4,11 +4,17 @@ use constant CATLO=>0x130;
 use constant CATHI=>0x198;
 use constant DATASTART=>0xa00;
 my @files=qw[
+    titlecode.exo
+    titlecode_elk.exo
+    title.exo
+    heads.exo
+    tiles.exo
     intro.exo
     intro
-    code.exo
-    tiles.exo
-    title.exo
+    code_elk.exo
+    code_bbcb.exo
+    code_beeb.exo
+    code_master.exo
     level01 level02 level03 level04 level05
     level06 level07 level08 level09 level10
     level11 level12 level13 level14 level15
@@ -48,7 +54,7 @@ substr($disc,CATHI,$nfiles,substr($cat,$nfiles));
 my $off=0xa00;
 print STDERR "Index\tOffset\tLength\tName\n";
 for my $i (0..$nfiles-1) {
-    printf STDERR "%d\t%x\t%x\t%s\n", $i, $off, $lengths[$i], $files[$i];
+    printf STDERR "%d\t%-5x\t%-5x\t%s\n", $i, $off, $lengths[$i], $files[$i];
     $off+=$lengths[$i];
 }
 
@@ -59,7 +65,7 @@ $disc=$disc.("\0"x (0xa00-length($disc))) if length$disc<0xa00;
 die length($disc) if length($disc) !=0xa00;
 $disc.=$data;
 
-
+$disc.="\0" while length($disc) % 256; # pad to sector boundary
 
 print $disc;
 exit;

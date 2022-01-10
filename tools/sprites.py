@@ -14,17 +14,38 @@ with Image.open(sys.argv[1]) as image:
     src = { #0x00: (6,0), # ??
             0x00: (1,0), #blank
             0x01: (1,1), #blank 2
-            0x02: (0,0), #pit
+            0x02: (5,15), #pit
+            0x60: (5,16), #spikes 1
+            0x61: (5,17), #spikes 2
             0x03: (3,0), #stairs
-            0x04: (0,2), #wall
-            0x05: (1,2), #crumbly           
+            #0x04: (0,2), #wall
+            0x04: (3,16), #wall
+            0x64: (3,15), #wall
+            #0x04: (3,19), #wall
+            #0x64: (3,18), #wall
+            #0x04: (3,22), #wall
+            #0x64: (3,21), #wall
+            #0x05: (1,2), #crumbly           
+            0x05: (4,15), #crumbly           
             0x06: (17,3),#blue door
             0x07: (16,3),#green door
             0x08: (18,3),#red door
             0x09: (3,4), #yellow closed
             0x0a: (4,4), #yellow open
-            0x0b: (1,1), #trapdoor
-            0x0c: (0,3), #wall 2
+            #0x0b: (1,1), #trapdoor
+            0x0b: (7,15), #trapdoor
+            0x0c: (0,15), #2x2 pillar
+            0x65: (1,15), #2x2 pillar
+            0x66: (0,16), #2x2 pillar
+            0x67: (1,16), #2x2 pillar
+            #0x0c: (0,18), #2x2 pillar
+            #0x65: (1,18), #2x2 pillar
+            #0x66: (0,19), #2x2 pillar
+            #0x67: (1,19), #2x2 pillar
+            #0x0c: (0,21), #2x2 pillar
+            #0x65: (1,21), #2x2 pillar
+            #0x66: (0,22), #2x2 pillar
+            #0x67: (1,22), #2x2 pillar
             0x0d: (10,0),#force
             0x0e: (12,0),#force
             0x0f: (10,2),#force
@@ -90,14 +111,14 @@ with Image.open(sys.argv[1]) as image:
             0x48: (10,6),# sword NW
             0x49: (10,4),# sword N
 
-            0x50: (3,11),# title NW
-            0x51: (4,11),# title N
-            0x52: (5,11),# title NE
-            0x53: (3,12),# title W
-            0x54: (5,12),# title E
-            0x55: (3,13),# title SW
-            0x56: (4,13),# title S
-            0x57: (5,13),# title SE
+            #0x50: (3,11),# title NW
+            #0x51: (4,11),# title N
+            #0x52: (5,11),# title NE
+            #0x53: (3,12),# title W
+            #0x54: (5,12),# title E
+            #0x55: (3,13),# title SW
+            #0x56: (4,13),# title S
+            #0x57: (5,13),# title SE
             0x58: (11,11),# scroll NW
             0x59: (12,11),# scroll N
             0x5a: (13,11),# scroll NE

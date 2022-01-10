@@ -18,7 +18,7 @@
 {
 	ldx #0
 	stx zp_temp
-IF 0
+IF UNROLL_MUL=0
 	ldx #4
 	clc
 .loop

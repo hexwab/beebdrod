@@ -50,6 +50,10 @@
 .mainloop
 	sty ytmp+1
 	jsr heads_plot
+	;lda #$f0
+	;sta $fe21
+	lda #19
+	jsr osbyte
 .wait
 	lda #$81
 	ldx #0
@@ -57,15 +61,26 @@
 	jsr osbyte
 	bcc dokey
 .donekey
-	lda $251
-	cmp #DELAY
+	lda timer_flag
+	beq wait
+	lda #DELAY
+	cmp $251
 	bne wait
 IF 0
+	{	lda timer_flag
+	beq ok
+	brk
+.ok
+}
+IF 1
 	lda #1
 .wait2
 	bit timer_flag
 	beq wait2
 ENDIF
+ENDIF
+	;lda #$f3
+	;sta $fe21
 .ytmp	ldy #$ee
 	iny
 	cpy #8
@@ -99,7 +114,7 @@ ENDIF
 .screen_set
 	equs " version"
 	equb 19,1,1,0,0,0,19,2,5,0,0,0,19,3,7,0,0,0
-	equb 31,20,8,"Level"
+	equb 31,24,8,"Level"
 .screen_set_end
 .dec_level
 	dec levelno
@@ -109,7 +124,7 @@ ENDIF
 .set_level
 	lda #31
 	jsr oswrch
-	lda #26
+	lda #30
 	jsr oswrch
 	lda #8
 	jsr oswrch
@@ -153,6 +168,10 @@ ENDIF
 .beeb	equs "Enhanced",0
 .master	equs "Master",0
 }
+
+VSYNC=$4dfc
+TIMER1=$2500
+TIMER2=VSYNC-TIMER1
 .init_timer
 {
 	sei
@@ -160,21 +179,21 @@ IF PLATFORM_ELK=0
 	lda #2
 .l	bit SYSVIA_IFR
 	beq l
-TIMER=$2500
-VSYNC=$4dfe	
-	lda #LO(TIMER)
+	lda #LO(TIMER1)
 	sta USERVIA_T1CL
-	lda #HI(TIMER)
+	lda #HI(TIMER1)
 	sta USERVIA_T1CH
-	lda #LO(VSYNC)
+	lda #LO(TIMER2)
 	sta USERVIA_T1LL
-	lda #HI(VSYNC)
+	lda #HI(TIMER2)
 	sta USERVIA_T1LH
 	lda #%01000000
 	sta USERVIA_ACR
 	lda #%11000000
 	sta USERVIA_IER
 ENDIF
+	lda #0
+	sta timer_flag
 	lda $204
 	sta oldirq+1
 	lda $205
@@ -228,26 +247,13 @@ IF PLATFORM_ELK
 ELSE
 	lda USERVIA_IFR
         bmi uservia
-	lda SYSVIA_IFR
-	bmi sysvia
 .*oldirq
 	jmp $ffff
-.sysvia
-	and #2
-	beq oldirq
-	lda #$24
-	sta $fe21
-	lda #$34
-	sta $fe21
-	lda #$64
-	sta $fe21
-	lda #$74
-	sta $fe21
-	lda #0
-	sta timer_flag
-	beq oldirq
 .uservia
 	lda USERVIA_T1CL ; clear interrupt
+	lda timer_flag
+	bne vsync
+.timer
 	lda #$26
 	sta $fe21
 	lda #$36
@@ -256,7 +262,32 @@ ELSE
 	sta $fe21
 	lda #$76
 	sta $fe21
+	;lda #$f7
+	;sta $fe21
 	lda #1
+	sta timer_flag
+	lda #LO(TIMER1)
+	sta USERVIA_T1LL
+	lda #HI(TIMER1)
+	sta USERVIA_T1LH
+	lda $fc
+	rti
+.vsync
+	lda #$24
+	sta $fe21
+	lda #$34
+	sta $fe21
+	lda #$64
+	sta $fe21
+	lda #$74
+	sta $fe21
+	;lda #$f3
+	;sta $fe21
+	lda #LO(TIMER2)
+	sta USERVIA_T1LL
+	lda #HI(TIMER2)
+	sta USERVIA_T1LH
+	lda #0
 	sta timer_flag
 	lda $fc
 	rti

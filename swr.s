@@ -1,4 +1,5 @@
-;systype=$
+INCLUDE "hw.h"
+
 	; find a page of spare SWRAM and page it in
 
 	; see https://stardot.org.uk/forums/viewtopic.php?p=274449#p274449
@@ -9,10 +10,12 @@
 	tax
 	inx
 	jsr osbyte
-;	sta systype
 	cpx #3
 	bcc notmaster
 .master
+	; all masters have systype 3
+	ldx #3 ; PLATFORM_MASTER
+IF 0
 	; copy font back to $C000 from F:B900
 	; FIXME: need to fix up font properly
 	; FIXME: font must live elsewhere as DFS corrupts $C2xx
@@ -28,19 +31,30 @@
 	sta $c200,Y
 	dey
 	bne fontloop
+ENDIF
+	lda #1
+	sta $291 ; turn interlace off: required for hwscroll
+	bra common
 .notmaster
 	cpx #0
-	bne common
+	bne notelectron
 .iselectron
 {
-	lda #5
+	stx systype ; 0, PLATFORM_ELK
+	lda #LO(ROMSEL_ELK)
 	sta romsel+1 ; romsel lives at fe05
 	dec romtable+1 ; romtable lives at 2a0
 	; patch core for electron-specific stuff
 	dec t2a0_1+1
 	dec t2a0_2+1
+	bne common ; always
 }
+.notelectron
+	lda #1
+	sta $291 ; turn interlace off: required for hwscroll
+	ldx #2 ; PLATFORM_BEEB
 .common	
+	stx systype
 	ldx #15
 .loop
 ;{	txa
@@ -66,12 +80,13 @@
 .skip
 	dex
 	bpl loop
+	; FIxME: run with PLATFORM_BBCB
 	brk
 	equb 0,"No SWRAM detected :(",0
 .page
 	lda #12:JSR SelectROM2:TXA
 .SelectROM2
 	sta &F4
-.romsel sta $FE30
+.romsel sta ROMSEL
 	RTS
 }

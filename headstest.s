@@ -29,6 +29,7 @@ INCLUDE "os.h"
 	beq restart
 	bne mainloop
 	INCLUDE "heads.s"
+	INCLUDE "heads.ptrs.s"
 	INCLUDE "heads.out.s"
 .end
 	

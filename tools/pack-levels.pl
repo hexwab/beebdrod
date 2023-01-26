@@ -239,28 +239,42 @@ while (<>) {
 		if (($q&0xff00) == 0x400) {
 		    # wall
 		    # walls with walls below are 0x64 instead. crumbly counts as walls
-		    no warnings;
-		    my $qbelowhi = ($r2[$pos+40])>>8;
-		    #print "qbelowhi=$qbelowhi\n";
-		    if ($qbelowhi==4 || $qbelowhi==0x64 || $qbelowhi==5) {
-			$q = ($q&0xff)|0x6400;
-		    }
+		    # now handled at runtime instead
+		    #no warnings;
+		    #my $qbelowhi = ($r2[$pos+40])>>8;
+		    ##print "qbelowhi=$qbelowhi\n";
+		    #if ($qbelowhi==4 || $qbelowhi==0x64 || $qbelowhi==5) {
+		    #	$q = ($q&0xff)|0x6400;
+		    #}
 		} elsif (($q&0xff00) == 0xc00) {
-		    # 2x2 pillar is 0c,65,66,67 depending on quadrant
+		    # 2x2 pillar is 0c,70,71,72 depending on quadrant
 		    no warnings;
-		    my %pillars = map {$_=>1} (0xc,0x65,0x66,0x67);
+		    my %pillars = map {$_=>$_} (0xc,0x70,0x71,0x72);
 		    my $left = $pillars{($r2[$pos-1])>>8};
-		    my $down = $pillars{($r2[$pos+40])>>8};
-		    my $right = $pillars{($r2[$pos+1])>>8};
+		    #my $down = $pillars{($r2[$pos+40])>>8};
+		    #my $right = $pillars{($r2[$pos+1])>>8};
 		    my $up = $pillars{($r2[$pos-40])>>8};
-		    if ($right && $down) {
+		    if (!$left && !$up) {
 			# top left. leave alone
-		    } elsif ($left && $down) {
-			$q = ($q&0xff)|0x6500; # top right
-		    } elsif ($right && $up) {
-			$q = ($q&0xff)|0x6600; # bottom left
-		    } elsif ($left && $up) {
-			$q = ($q&0xff)|0x6700; # bottom right
+		    } elsif (!$up) {
+			$q = ($q&0xff)|0x7000 if $left==0xc; # top right
+		    } elsif (!$left) {
+			$q = ($q&0xff)|0x7100 if $up==0xc; # bottom left
+		    } else {
+			# 0c 70 0c 70
+			# 71 72 71 72
+			# 0c 70 0c 70
+			# 71 72 71 72
+
+			if ($left==0x71 && $up==0x70) {
+			    $q = ($q&0xff)|0x7200;
+			} elsif ($left==0xc && $up==0x72) {
+			    $q = ($q&0xff)|0x7000;
+			} elsif	($left==0x72 && $up==0xc) {
+			    $q = ($q&0xff)|0x7100;
+			} elsif ($left==0x70 && $up==0x71) {
+			    $q = ($q&0xff)|0x0c00;
+			} else { die "$left $up"; }
 		    }
 		}
 	    }
@@ -420,7 +434,7 @@ sub exo {
     my ($fh,$fn) = tempfile();
     print $fh shift;
     close $fh;
-    open my $f, sprintf("exomizer level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,0);#$addr);
+    open my $f, sprintf("\$EXO level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,0);#$addr);
     local $/=undef;
     my $q=<$f>;
     unlink $fn;

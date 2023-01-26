@@ -1,30 +1,20 @@
 ; sprite: 8x8 tile plotting
 
-MACRO nibshiftright
-	lsr a
-	lsr a
-	lsr a
-	lsr a
-ENDMACRO
-MACRO nibshiftleft
-	asl a
-	asl a
-	asl a
-	asl a
-ENDMACRO
-
-.plot_with_bounds_check
 {
-	cpx #0
-	bmi no
-	cpx #XSIZE
-	beq no
+.no	rts
+.*plot_bounds_from_tmpxy
+	ldx zp_tmpy
+	ldy zp_tmpx
+.*plot_with_bounds_check
 	cpy #0
 	bmi no
-	cpy #YSIZE
+	cpy #XSIZE
 	beq no
-	jmp plot
-.no	rts
+	cpx #0
+	bmi no
+	cpx #YSIZE
+	beq no
+	; fall through
 }
 
 ; X,Y reversed coords
@@ -36,7 +26,6 @@ ENDMACRO
 	jsr get_tile
 	; check for special tile types
 .*plot_from_tile_with_special
-	php
 	cpx #1
 	bne notfloor
 .floor
@@ -48,7 +37,7 @@ ENDMACRO
 	tax
 	pla
 .notfloor
-IF PROPER_PITS
+IF 0;PROPER_PITS
 	cpx #2
 	bne notpit
 {	; pit fixup
@@ -94,7 +83,6 @@ ENDIF
 	jsr get_dir_to_player
 	ora #$68
 .xtmp	ldx #OVERB
-	plp
 	jmp plot_from_tile_always_masked_no_flags
 }	
 .notroach
@@ -114,17 +102,12 @@ IF OPAQUE_TAR
 	; opaque plotting speeds up drawing large areas of tar
 	cmp #$23
 	bne xtmp
-	plp
-	bcc not_transp_sprite_in_a ; always
-IF DEBUG
-	brk
-ENDIF
+	beq not_transp_sprite_in_a ; always
 ENDIF	
 .xtmp
 	ldx #OVERB
 }
 .nottar
-	plp
 	; fall through
 }
 
@@ -132,12 +115,17 @@ ENDIF
 ; transparent in A (Z if A=0), opaque in X, coords in zp_tmpx/zp_tmpy
 .plot_from_tile
 {
+	cmp #0
 	beq not_transp
 .*plot_from_tile_always_masked_no_flags
 	; hack: check for empty background. makes drawing snakes much faster
-	; FIXME: this works only if mask colour is floor colour
-	;cpx #0
-	;beq not_transp_sprite_in_a
+	; this works only if mask colour is floor colour
+IF TRANSP_HACK
+	cpx #0
+	bne not_transp_hack
+	jmp transp_hack
+.not_transp_hack
+ENDIF
 	; plot tranparent over opaque
 	stx background_sprite+1
 	ldx zp_tmpx
@@ -257,7 +245,6 @@ IF HWSCROLL
 ENDIF
 }
 
-FAST_PLOT_INLINE=1
 ; X,Y coords, A sprite number
 .plot_masked_inline
 {
@@ -274,7 +261,6 @@ ELSE
 ENDIF
 	ora #>SPRTAB
 	sta src1+2
-	sta src2+2
 
 	lda last_sprite+1
 IF ONLY_128_SPRITES=1
@@ -282,7 +268,6 @@ IF ONLY_128_SPRITES=1
 ENDIF
 	and #$f0
 	sta src1+1
-	sta src2+1
 .same
 	; calc dest address
 	lda linetab_lo,Y
@@ -290,9 +275,7 @@ ENDIF
 	adc mul16_lo,X
 	sta dst1+1
 	sta dst2+1
-IF FAST_PLOT_INLINE
 	sta dst3+1
-ENDIF
 	lda linetab_hi,Y
 	adc mul16_hi,X
 IF HWSCROLL
@@ -301,9 +284,7 @@ IF HWSCROLL
 ENDIF
 	sta dst1+2
 	sta dst2+2
-IF FAST_PLOT_INLINE
 	sta dst3+2
-ENDIF
 	ldx #15
 .loop
 	; get src byte (4px)
@@ -311,13 +292,22 @@ ENDIF
 	; OR MSN with LSN. now LSN is 4 bits of mask (0 for origsrc, 1 for newsrc)
 	; OR LSN with LSN<<4. gives bytemask
 	; now dest=(origsrc AND bytemask) OR (newsrc AND NOT bytemask)
-.src1	lda $ee00,X
-	eor #$0f ; colour 2 is transparent
+IF REALLY_FAST_PLOT_INLINE
+.src1	ldy $ee00,X
 	beq skip
-IF FAST_PLOT_INLINE
+	tya
+.dst1	eor $ee00,X
+.tmp2	and masktable,Y
+.dst2	eor $ee00,X
+.dst3	sta $ee00,X	
+ELSE
+.src1	lda $ee00,X
+	;eor #$0f ; colour 2 is transparent
+	;eor #$ff
+	beq skip
 	; via https://mdfs.net/Info/Comp/6502/ProgTips/BitManip
 	; thanks JGH!
-	sta tmp+1
+	sta zp_tmpmask
 	; swap nibbles
 	asl A      ; a   bcdefgh0
 	adc #$80   ; b   Bcdefgha
@@ -325,29 +315,13 @@ IF FAST_PLOT_INLINE
 	asl A      ; c   defghab0
 	adc #&80   ; d   Defghabc
 	rol A      ; D   efghabcd
-.tmp	and #$EE
-	eor #$ff
+.tmp	ora zp_tmpmask
 	sta tmp2+1 ;bytemask
-.src2	lda $ee00,X
+	lda zp_tmpmask
 .dst1	eor $ee00,X
-.tmp2	and #$EE
+.tmp2	and #OVERB
 .dst2	eor $ee00,X
 .dst3	sta $ee00,X
-ELSE
-	sta tmp+1
-	nibshiftright
-.tmp	and #$ee
-	sta tmp2+1
-	nibshiftleft
-.tmp2	ora #$ee
-	tay
-.dst1	and $ee00,X
-	sta tmp3+1
-	tya
-	eor #$ff
-.src2	and $ee00,X
-.tmp3	ora #$ee
-.dst2	sta $ee00,X
 ENDIF
 .skip
 	dex
@@ -423,9 +397,9 @@ ENDIF
 	ldx #15
 .loop
 .src1	lda $ee00,X
-	eor #$0f ; colour 2 is transparent
+	;eor #$0f ; colour 2 is transparent
+	eor #$ff
 	beq skip
-IF FAST_PLOT_INLINE
 	sta tmp+1
 	; swap nibbles
 	asl A      ; a   bcdefgh0
@@ -434,15 +408,7 @@ IF FAST_PLOT_INLINE
 	asl A      ; c   defghab0
 	adc #&80   ; d   Defghabc
 	rol A      ; D   efghabcd
-.tmp	and #$EE
-ELSE
-	sta tmp+1
-	nibshiftright
-.tmp	and #$ee
-	sta tmp2+1
-	nibshiftleft
-.tmp2	ora #$ee
-ENDIF
+.tmp	and #OVERB
 .skip	tay
 .dst1	and $ee00,X
 	sta tmp3+1
@@ -463,6 +429,63 @@ IF HWSCROLL
 ENDIF
 }
 
+IF TRANSP_HACK
+.transp_hack
+	ldx zp_tmpx
+	ldy zp_tmpy
+; X,Y coords, A sprite number
+.plot_transp_to_floor
+{
+.last_sprite
+	cmp #$ee
+	beq same ; skip src calc if we can
+	sta last_sprite+1
+	; calc src address
+IF ONLY_128_SPRITES=1
+	and #$07
+ELSE
+	and #$0f
+ENDIF
+	ora #>SPRTAB
+	sta src1+2
+
+	lda last_sprite+1
+IF ONLY_128_SPRITES=1
+	asl a
+ENDIF
+	and #$f0
+	sta src1+1
+.same
+	; calc dest address
+	lda linetab_lo,Y
+	clc
+	adc mul16_lo,X
+	sta dst1+1
+	lda linetab_hi,Y
+	adc mul16_hi,X
+IF HWSCROLL
+	bmi wrap
+.nowrap
+ENDIF
+	sta dst1+2
+	ldx #15
+.loop
+.src1
+	ldy $ee00,X
+	lda transp_to_floor,Y
+.dst1
+	sta $ee00,X
+	dex
+	bpl loop
+	rts
+IF HWSCROLL
+.wrap
+	sec
+	sbc #$50
+	bpl nowrap ; always
+ENDIF
+}
+ENDIF	
 .linetab_lo
 FOR I,0,32,1
 	EQUB <(I*XRES*16+SCRSTART)
@@ -479,3 +502,14 @@ NEXT
 FOR I,0,42,1
 	EQUB >(I*16)
 NEXT
+IF TRANSP_HACK
+ALIGN $100
+INCLUDE "transp_to_floor.s"
+ENDIF
+IF REALLY_FAST_PLOT_INLINE
+ALIGN $100
+.masktable
+	FOR i,0,255,1
+	equb $11*((i AND15)OR(i>>4))
+	NEXT
+ENDIF

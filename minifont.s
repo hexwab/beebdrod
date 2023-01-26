@@ -1,9 +1,18 @@
 ; tweakables
 LAST_FOUR=1 ; include ASCII 123-126 ("{","|", "}", "~")
-;MASTER=0 ; defined elsewhere
 WIDE=1 ; allow >256-byte lines
 COLOURS=4 ; what screen mode we're targeting
-OS_120=0
+OS_120=0 ; unused
+IF PLATFORM_BBCB
+MUL17TABLE=$c31f
+ELIF PLATFORM_ELK
+MUL17TABLE=$c317
+ELIF PLATFORM_MASTER
+MUL17TABLE=0 ; e013 on MOS 3.20 but e011 on MOS 3.50
+ELSE
+MUL17TABLE=0
+ENDIF
+	
 VERT_UNALIGNED=1	
 zptmp=$80	
 zp_mini_chartmp=$80 ; font bitmap
@@ -28,7 +37,7 @@ ELIF COLOURS=4
 ELIF COLOURS=16
 	OUTCOUNT=1
 ENDIF
-IF MASTER=1	
+IF PLATFORM_MASTER
 	font=$b800 ; in bank 15
 ELSE
 	font=$c000
@@ -40,9 +49,9 @@ IF 0
 ENDIF
 .mini_write_line
 {
-IF MASTER=1
+IF PLATFORM_MASTER
 	lda $f4
-	sta romtmp+1
+	pha
 	lda #15
 	sta $f4
 	sta $fe30
@@ -77,13 +86,16 @@ ENDIF
 	inc zp_mini_stringptr
 
 .plot
-IF MASTER=1
-	tay
-	sec
-	sbc #32
-	bmi linedone
+IF PLATFORM_MASTER
+	bit #$e0
+	beq linedone
 	tax
-	tya
+;	tay
+;	sec
+;	sbc #32
+;	bmi linedone
+;	tax
+;	tya
 ELSE
 	sec
 	sbc #32
@@ -110,7 +122,11 @@ ENDIF
 	ldy zp_mini_linecount
 	lda (zp_mini_fontptr),Y
 	sta zp_mini_chartmp
+IF PLATFORM_MASTER
+	lda charbitmap-32,X ; bitmask
+ELSE
 	lda charbitmap,X ; bitmask
+ENDIF
 	ldy zp_mini_outcount
 	bpl rowloop ; always
 .skip
@@ -129,9 +145,9 @@ IF COLOURS=2
 	lda zp_mini_outbmp
 ELIF COLOURS=4
 {
-IF OS_120=1
+IF MUL17TABLE
 	ldy zp_mini_outbmp
-	lda $c31f,Y
+	lda MUL17TABLE,Y
 ELSE
 	lda zp_mini_outbmp
 	asl a
@@ -140,6 +156,7 @@ ELSE
 	asl a
 	adc zp_mini_outbmp
 ENDIF
+	and #255-BACKG_BYTE
 }
 ELIF COLOURS=16
 	ldy zp_mini_outbmp
@@ -182,9 +199,8 @@ IF VERT_UNALIGNED
 ENDIF
 	cpx #8
 	bne lineloop
-IF MASTER=1
-.romtmp
-	lda #OVERB
+IF PLATFORM_MASTER
+	pla
 	sta $f4
 	sta $fe30
 ENDIF

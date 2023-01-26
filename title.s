@@ -12,9 +12,39 @@
 	timer_flag=$74
 	ORG $8000
 	INCLUDE "heads.out.s"
+	ORG $2000
+	INCLUDE "heads.ptrs.s"
 	
 	ORG $1100
 .start
+.beeb
+	; we only have enough memory for one frame
+	FRAME=2 ; which single frame we plot
+IF 0
+	ldy #FILE_heads_exo
+	jsr load_and_init_decrunch
+	jsr fs_get_byte
+	eor #$d0 ; load at $5000 instead of $8000
+	sta zp_dest_hi
+	ldx #2
+	jsr decrunch2
+
+	; fixup pointers
+	lda ptrhi+FRAME
+	eor #$d0
+	sta ptrhi+FRAME
+ENDIF
+	ldy #FRAME ; plot a single frame
+	jsr heads_plot
+
+	jmp common
+
+.init
+IF PLATFORM_ELK
+	lda $282
+	eor #%111000
+	jsr $e495
+ENDIF
 	_print_string screen_blank_clear_white,screen_blank_clear_white_end
 	; print systype
 {	ldx systype
@@ -27,9 +57,15 @@
 	bne loop ; always
 .done
 }
-	ldy #FILE_title_exo
+	ldy #FILE_headsptrs_exo
 	jsr load_and_decrunch
+	ldx systype
+	dex
+	beq beeb ; PLATFORM_BBCB
 	ldy #FILE_heads_exo
+	jsr load_and_decrunch
+.common
+	ldy #FILE_title_exo
 	jsr load_and_decrunch
 	lda #4
 	ldx #1
@@ -49,6 +85,9 @@
 	ldy #0
 .mainloop
 	sty ytmp+1
+	ldx systype
+	dex
+	beq wait ; PLATFORM_BBCB
 	jsr heads_plot
 	;lda #$f0
 	;sta $fe21
@@ -103,8 +142,6 @@ ENDIF
 .notdown	
 .done
 	jsr deinit_timer
-	ldy #FILE_tiles_exo
-	jsr load_and_decrunch
 	ldy #FILE_intro_exo
 	jmp chain
 .screen_blank_clear_white
@@ -169,7 +206,7 @@ ENDIF
 .master	equs "Master",0
 }
 
-VSYNC=$4dfc
+VSYNC=$4e3c
 TIMER1=$2500
 TIMER2=VSYNC-TIMER1
 .init_timer
@@ -297,6 +334,6 @@ ENDIF
 .end
 	
 	PRINT "load=",~start
-	PRINT "exec=",~start
+	PRINT "exec=",~init
 	SAVE "titlecode",start,end
 	

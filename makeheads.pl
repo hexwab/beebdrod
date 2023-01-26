@@ -1,4 +1,7 @@
 #!/usr/bin/perl -w
+my @frames=(split//,shift);
+my $justptrs=(shift=~/^-p/);
+
 $/=undef;
 $z=<>;
 use Data::Dumper;
@@ -93,17 +96,23 @@ for my $n (0..7) {
 #}
 #print "maxp: $maxp\n";
 
+if ($justptrs) {
+    print ".ptrlo equb ".(join",",map {"<frame$_"} 0..$#out)."\n";
+    print ".ptrhi equb ".(join",",map {">frame$_"} 0..$#out)."\n";
+    print ".bytestart equb ".(join",",map {8*$out[$_][1]} 0..$#out)."\n";
+    print ".byteend equb ".(join",",map {8*$out[$_][2]} 0..$#out)."\n";
+
+    print ".skipptrlo equb ".(join",",map {"<skipptr$_"} 0..$#out)."\n";
+    print ".skipptrhi equb ".(join",",map {">skipptr$_"} 0..$#out)."\n";
+    print ".skipptr$_ equb ".(join",",@{$out[$_][7]})."\n" for 0..$#out;
+}
 print ";[$out[$_][1],$out[$_][2],$out[$_][3],$out[$_][4]],$out[$_][5]\n" for 0..$#out;
-print ".ptrlo equb ".(join",",map {"<frame$_"} 0..$#out)."\n";
-print ".ptrhi equb ".(join",",map {">frame$_"} 0..$#out)."\n";
-print ".bytestart equb ".(join",",map {8*$out[$_][1]} 0..$#out)."\n";
-print ".byteend equb ".(join",",map {8*$out[$_][2]} 0..$#out)."\n";
 
-print ".skipptrlo equb ".(join",",map {"<skipptr$_"} 0..$#out)."\n";
-print ".skipptrhi equb ".(join",",map {">skipptr$_"} 0..$#out)."\n";
-print ".skipptr$_ equb ".(join",",@{$out[$_][7]})."\n" for 0..$#out;
+#print ".skipptrlo equb ".(join",",map {"<skipptr$_"} 0..$#out)."\n";
+#print ".skipptrhi equb ".(join",",map {">skipptr$_"} 0..$#out)."\n";
+#print ".skipptr$_ equb ".(join",",@{$out[$_][7]})."\n" for 0..$#out;
 
-for my $n (0..$#out) {
+for my $n (@frames) {
     #print ".frame$n equb ".(join",",unpack"C*",${out[$n]}[0])."\n";
     print ".frame$n\n";
     my $c=${out[$n]}[5]/14;

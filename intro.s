@@ -71,24 +71,20 @@ ENDIF
 .done
 }
 
-.load_level
-	lda levelno
-	clc
-	adc #FILE_level01
-	tay
-	ldx #0
-	lda #$80
-	jsr load_file_to
-	
 .run_game
 	lda #FILE_code_elk_exo
 	clc
 	adc systype
 	tay
 	jmp chain
+	
 .level_title_window
-	equb 26,17,128,12
-	equb 17,131,17,0,28,0,31,37,0,12,31,10,3
+	;equb 19,1,1,0,0,0,19,2,4,0,0,0
+	equb 19,0,4,0,0,0,19,1,1,0,0,0
+	equb 19,2,0,0,0,0,19,3,7,0,0,0
+	equb 26,17,128+BACKG_COL,12
+	equb 17,131,17,BACKG_COL,28,0,31,37,0,12,31,10,3
+	equb 23,0,2,96,0,0,0,0,0,0
 .level_title_window_end
 
 .level_intro_window

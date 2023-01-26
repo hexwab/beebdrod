@@ -51,7 +51,7 @@ sub exo {
     my ($fh,$fn) = tempfile();
     print $fh shift;
     close $fh;
-    open my $f, sprintf("exomizer level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,$addr);
+    open my $f, sprintf("\$EXO level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,$addr);
     local $/=undef;
     my $q=<$f>;
     unlink $fn;

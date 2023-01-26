@@ -1,9 +1,11 @@
 CFLAGS=-g3 -Wall
+export EXO=exomizer301
+export BEEBASM=beebasm
 all: drod.ssd
 
 tools: tools/dump tools/unpack-room
 
-rooms: dump tools
+rooms: dump
 	mkdir -p rooms
 	cd rooms ; \
 	for i in `seq -w 350` ; do \
@@ -19,9 +21,11 @@ text:
 dump:
 	cd reference ; \
 	../tools/dump drod1_6.dat >drod1_6.txt
+	touch dump
 
-levels:
+levels: tools/pack-levels.pl rooms
 	perl tools/pack-levels.pl <reference/drod1_6.txt
+	touch levels
 
 levels-test:
 	perl tools/pack-levels.pl -d <reference/drod1_6.txt
@@ -29,36 +33,51 @@ levels-test:
 tiles: tiles.png tools/sprites.py
 	python3 tools/sprites.py tiles.png
 
-title:	titlebeeb.png
-	python2 tools/png2bbc.py -p 0157 titlebeeb.png 1 -o title
-	exomizer level -q -c -M256 title@0x5580 -o title.exo
+title.exo:	titlebeeb.png
+	python3 tools/png2bbc.py -p 0157 titlebeeb.png 1 -o title
+	$(EXO) level -q -c -M256 title@0x5580 -o title.exo
 
-heads: headsbeeb.png makeheads.pl headsdata.s
-	python2 tools/png2bbc.py --transparent-output 0 -p 0357 headsbeeb.png 1 -o heads.bin
-	perl makeheads.pl <heads.bin >heads.out.s
-	beebasm -i headsdata.s -v >heads.txt
-	exomizer level -q -c -M256 heads@0x8000 -o heads.exo
+heads.exo: headsbeeb.png makeheads.pl headsdata.s
+	python3 tools/png2bbc.py --transparent-output 0 -p 0357 headsbeeb.png 1 -o heads.bin
+	# include just one frame in main RAM
+	perl makeheads.pl 2 -p <heads.bin >heads.ptrs.s
+	perl makeheads.pl 0134567 <heads.bin >heads.out.s
+	$(BEEBASM) -i headsdata.s -v >heads.txt
+	$(EXO) level -q -c -M256 heads@0x8000 -o heads.exo
+	$(EXO) level -q -c -M256 headsptrs@0x2000 -o headsptrs.exo
+
+intro: text levels
+	perl tools/pack-intros.pl
+
+transp_to_floor.s: transp_to_floor.pl
+	perl transp_to_floor.pl >transp_to_floor.s
 
 heads.ssd: heads.exo headstest.s heads.s
-	beebasm -i headstest.s -do heads.ssd -boot ƒheads -v >headstest.txt
+	$(BEEBASM) -i headstest.s -do heads.ssd -boot ƒheads -v >headstest.txt
 
-drod.ssd: drod.s exo.s intro.s title.s map.s zap.s tar.s sprite.s text.s minifont.s scroll.s tiles boot.s swr.s core.s hwscroll.s heads.exo heads.s makedisc.pl
+drod.ssd: drod.s exo.s intro.s title.s map.s zap.s tar.s sprite.s text.s minifont.s scroll.s tiles boot.s swr.s core.s hwscroll.s title.exo heads.exo heads.s makedisc.pl level.s fs.s wallpit.s transp_to_floor.s intro
 	perl makedisc.pl -f >files.h
-	beebasm -i title.s -D PLATFORM_BBCB=1 -D ELECTRON=0 -v >title.txt
+	$(BEEBASM) -i title.s -D PLATFORM_BBCB=1 -D ELECTRON=0 -v >title.txt
 	perl makechain.pl titlecode title.txt >titlecode.exo
-	beebasm -i title.s -D PLATFORM_ELK=1 -D ELECTRON=1 -v >titleelk.txt
+	$(BEEBASM) -i title.s -D PLATFORM_ELK=1 -D ELECTRON=1 -v >titleelk.txt
 	perl makechain.pl titlecode titleelk.txt >titlecode_elk.exo
-	beebasm -i intro.s -D PLATFORM_BEEB=1 -v >intro.txt
+	$(BEEBASM) -i intro.s -D PLATFORM_BEEB=1 -v >intro.txt
 	perl makechain.pl dointro intro.txt >intro.exo
-	exomizer level -q -c -M256 tiles@0xa000 -o tiles.exo
-	beebasm -i drod.s -D PLATFORM_BBCB=1 -v >out_bbcb.txt
+	$(EXO) level -q -c -M256 tiles@0xa000 -o tiles.exo
+	$(BEEBASM) -i drod.s -D PLATFORM_BBCB=1 -v >out_bbcb.txt
 	perl makechain.pl code out_bbcb.txt >code_bbcb.exo
-	beebasm -i drod.s -D PLATFORM_BEEB=1 -v >out_beeb.txt
+	perl makechain.pl map_overlay out_bbcb.txt map >map_overlay.exo
+	$(BEEBASM) -i drod.s -D PLATFORM_BEEB=1 -v >out_beeb.txt
 	perl makechain.pl code out_beeb.txt >code_beeb.exo
-	beebasm -i drod.s -D PLATFORM_ELK=1 -v >out_elk.txt
+	$(BEEBASM) -i drod.s -D PLATFORM_ELK=1 -v >out_elk.txt
 	perl makechain.pl code out_elk.txt >code_elk.exo
-	beebasm -i drod.s -D PLATFORM_MASTER=1 -v >out_master.txt
+	$(BEEBASM) -i drod.s -D PLATFORM_MASTER=1 -v >out_master.txt
 	perl makechain.pl code out_master.txt >code_master.exo
-	beebasm -i boot.s -D PLATFORM_BEEB=1 -do boot.ssd -opt 2 -title "D.R.O.D." -v >boot.txt
-	truncate -s 2560 boot.ssd
+	$(BEEBASM) -i boot.s -D PLATFORM_BEEB=1 -do boot.ssd -opt 2 -title "D.R.O.D." -v >boot.txt
 	perl makedisc.pl <boot.ssd >tmp.ssd && mv tmp.ssd drod.ssd
+
+clean:
+	-rm -rf *.exo intro heads headsptrs heads.out.s heads.ptrs.s heads.bin transp_to_floor.s title tiles code dointro map_overlay drod.ssd heads.ssd boot.ssd boot.txt heads.txt intro.txt titlecode files.h out*.txt title*.txt
+
+reallyclean:
+	-rm -rf level[012][0-9] dump/ rooms/ text/ levels dump

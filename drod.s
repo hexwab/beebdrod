@@ -16,8 +16,11 @@ ELSE
 ENDIF
 
 
-;; 42x32? XRES gotta be multiple of 2
+IF PLATFORM_BBCB
+SPRTAB=$2000 ; must be 4K-aligned
+ELSE
 SPRTAB=$A000 ; must be 4K-aligned
+ENDIF
 ; 256 non-masked sprites
 ; sprites are 16 bytes (8x8x2bpp)
 ; sprite 0 at SPRTAB+0
@@ -47,7 +50,15 @@ YSIZE=32
 
 LEVEL_HEADER_SIZE=5	
 MAXROOMS=25
+IF ENTIRE_LEVEL	
+IF PLATFORM_ELK
+level		= $1100
+ELSE
 level		= $8000
+ENDIF
+ELSE	
+level		= $690
+ENDIF	
 level_nrooms    = level+0
 level_startroom = level+1
 level_startx    = level+2
@@ -58,8 +69,15 @@ level_coordtab  = level_tables
 level_roomptrlo = level_tables+MAXROOMS
 level_roomptrhi = level_tables+MAXROOMS*2
 level_orblen    = level_tables+MAXROOMS*3
+LEVELHEADLEN	= level_tables+MAXROOMS*4-level
 
+IF PLATFORM_ELK
+room		= $9400
+ELIF PLATFORM_BBCB
+room		= $2800
+ELSE
 room		= $2300
+ENDIF
 room_end	= room+$aa0
 orbs		= room_end
 
@@ -80,31 +98,48 @@ zp_dxdy 	= $7b
 zp_temp		= $7c
 zp_temp2	= $7d
 zp_moved_dir	= $7e ; what direction the player moved last
-
+zp_tmpmask	= $7f ; sprite plotter
 ; pre-initialized zero page
-zp=$0
-tilelinetab_zp=zp+0 ; must be 32-byte aligned
-zp_dirtablex = zp+$4e
-zp_dirtabley = zp+$57
+IF EXO_FROM_RAM
+zp=$44
+ELSE
+zp=$44+$a
+ENDIF	
+;tilelinetab_zp=zp+0 ; must be 32-byte aligned
+zp_dirtablex = $4e
+zp_dirtabley = $57
 ;zp_dir2_to_offset = zp+$60
 
-;CPU 1
+IF PLATFORM_MASTER
+	ORG $e00
+	GUARD $2300
+ELIF PLATFORM_ELK
+	ORG $8000
+	GUARD $9300
+ELIF PLATFORM_BBCB
+	ORG $1100
+	GUARD $2000
+ELSE
 	ORG $1100
 	GUARD $2300
+ENDIF
 .start
+IF PLATFORM_BBCB
+	; load sprites over init code
+	jsr decrunch2
+ENDIF
 	jsr init_level
 .mainloop
 	jsr keys
 	jmp mainloop
 
-.esc	lda #126
-	jmp $fff4
 .keys
 {
 	jsr osrdch
-	bcs esc
-	cmp #'q'
-	beq turnleft
+	cmp #96
+	bcc nosmash
+	eor #$20
+.nosmash
 	cmp #'Q'
 	bne notturnleft
 .turnleft
@@ -118,8 +153,6 @@ zp_dirtabley = zp+$57
 	jmp end_turn
 }
 .notturnleft
-	cmp #'w'
-	beq turnright
 	cmp #'W'
 	bne notturnright
 .turnright
@@ -139,8 +172,6 @@ ENDIF
 	jmp end_turn
 }
 .notturnright
-	cmp #'r'
-	beq do_restart
 	cmp #'R'
 	bne notrestart
 .do_restart
@@ -154,32 +185,37 @@ ENDIF
 	beq yep
 	cmp keytab2,X
 	beq yep
-	cmp keytab3,X
-	beq yep
 	dex
 	bpl dirloop
 
 	cmp #'M'
 	bne notmap
+IF SMALL_SCREEN
+	jsr hwscroll_screen_off
+	ldy #FILE_map_overlay_exo
+	jsr chain
+	jmp hwscroll_screen_on
+ELSE
 	jmp do_map
+ENDIF
 .notmap
 
 IF DEBUG
 ; cursors move to next room
 ;{
-	cmp #$8B
+	cmp #$AB
 	bne notup
 	jmp movenorth_d
 .notup
-	cmp #$8A
+	cmp #$AA
 	bne notdown
 	jmp movesouth_d
 .notdown
-	cmp #$89
+	cmp #$A9
 	bne notright
 	jmp moveeast_d
 .notright
-	cmp #$88
+	cmp #$A8
 	bne notleft
 	jmp movewest_d
 .notleft
@@ -193,9 +229,7 @@ ENDIF
 }
 .keytab1 ; numpad
 	EQUS "78963214"
-.keytab2 ; vi-style, lowercase
-	EQUS "ykulnjbh"
-.keytab3 ; vi-style, uppercase
+.keytab2 ; vi-style
 	EQUS "YKULNJBH"
 
 .init_level
@@ -212,6 +246,9 @@ ENDIF
 IF HWSCROLL
 	lda #0
 	sta came_from+1
+ENDIF
+IF SHADOW_MAP
+	jsr init_map
 ENDIF
 	jmp init_room
 
@@ -232,15 +269,25 @@ ENDIF
 
 .init_room
 {
+IF PLATFORM_ELK
+	jsr hwscroll_screen_off
+ENDIF
 	ldx zp_roomno
 	; mark room as explored
 	lda level_coordtab,X
 	ora #$80
 	sta level_coordtab,X
-
+IF ENTIRE_LEVEL
+IF level<>$8000
+	lda level_roomptrhi,X
+	sec
+	sbc #($80->level)
+	tay
+ELSE
+	ldy level_roomptrhi,X
+ENDIF
 	lda level_roomptrlo,X
 	sta orbptr+1
-	ldy level_roomptrhi,X
 	sty orbptr+2
 	clc
 	adc level_orblen,X
@@ -251,7 +298,33 @@ ENDIF
 	lda #>room_end
 	sta zp_exo_dest_hi
 	lda #<room_end
-	jsr decrunch_to_no_header ; decompress tiles
+	jsr decrunch_to_no_header ; decompress room
+ELSE ; not ENTIRE_LEVEL
+	jsr seek_level
+	ldy zp_roomno
+	jsr seek_room
+{
+	; copy orbs
+	ldy zp_roomno
+	lda level_orblen,Y
+	beq orbdone
+	sta tmp+1
+	ldx #0
+.orbloop
+.orbptr	jsr fs_get_byte
+	sta orbs,X
+	inx
+.tmp	cpx #OVERB
+	bne orbloop
+.orbdone
+}
+	lda #>room_end
+	sta zp_exo_dest_hi
+	lda #<room_end
+	sta zp_exo_dest_lo
+	lda #1
+	jsr continue_decrunching
+ENDIF
 
 	ldy zp_playerx
 	sty restartx+1
@@ -265,11 +338,15 @@ ENDIF
 	jsr get_tile_ptr_and_index
 	lda #$01
 	sta (zp_tileptr),Y
+
+	jsr wallpit_room
 IF HWSCROLL
 	jsr hwscroll
 ELSE
 	jsr plot_entire_room
 ENDIF
+
+IF ENTIRE_LEVEL
 	; copy orbs
 	; do this *after* hwscroll as orb buffer and scroll buffer overlap
 	ldy zp_roomno
@@ -282,7 +359,15 @@ ENDIF
 	cpx #0
 	bne orbloop
 .orbdone
+ENDIF
 
+IF PLATFORM_ELK
+	jsr hwscroll_screen_on
+ENDIF
+
+IF SHADOW_MAP
+	jsr update_map
+ENDIF
 	jsr check_sword
 	jsr draw_player
 	rts
@@ -390,14 +475,15 @@ ENDIF
 	beq fail
 	cpx #$05 ; crumbly
 	beq fail
+	cpx #$65 ; crumbly
+	beq fail
 	cpx #$0c ; wall2
 	beq fail
-	cpx #$65 ; wall2
-	beq fail
-	cpx #$66 ; wall2
-	beq fail
-	cpx #$67 ; wall2
-	beq fail
+	cpx #$70 ; 70-72 is pillar 
+	bcc notpillar
+	cpx #$73
+	bcc fail
+.notpillar
 	cpx #$09 ; closed yellow door
 	beq fail
 	cpx #$18 ; orb
@@ -542,6 +628,8 @@ ENDIF
 	beq orb
 .notorb
 	cpx #$05
+	beq crumbly
+	cpx #$65
 	bne notcrumbly
 .crumbly
 {
@@ -550,9 +638,15 @@ ENDIF
 	jsr get_tile_ptr_and_index
 	lda #$01
 	sta (zp_tileptr),Y
-	ldx zp_tmpx
-	ldy zp_tmpy
-	jmp plot_with_bounds_check
+	lda zp_tmpy
+	pha
+	jsr wallpit_col
+	pla
+	sta zp_tmpy
+	; redraw tile and the one above
+	jsr plot_bounds_from_tmpxy
+	dec zp_tmpy
+	jmp plot_bounds_from_tmpxy
 }
 .notcrumbly
 	cmp #$66 ; FIXME
@@ -648,6 +742,7 @@ MINI=1
 	INCLUDE "map.s"
 	INCLUDE "zap.s"
 	INCLUDE "tar.s"
+	INCLUDE "wallpit.s"
 ; this is for orbs adjusting doors
 ; X,Y reversed coords
 .fill
@@ -678,9 +773,8 @@ set_array_y=$100+FILL_STACK_SIZE
 .*fill_to
 	lda #OVERB
 	sta (zp_tileptr),Y
-	ldx zp_tmpx
-	ldy zp_tmpy
-	jsr plot
+	jsr get_last_tile
+	jsr plot_from_tile_with_special
 	; for npos in neighbours(pos):
 	ldx #7
 .neighloop
@@ -1023,7 +1117,19 @@ ENDIF
 ; X,Y reversed coords. returns: opaque layer in X, transparent layer in A, Z set if A zero
 .get_tile
 {
+IF INLINE_GET_TILE
+	tya
+	asl a
+	adc #40*2+2 ; carry always clear
+	tay
+	inx
+	lda tileptr_lo,X
+	sta zp_tileptr
+	lda tileptr_hi,X
+	sta zp_tileptr+1
+ELSE
 	jsr get_tile_ptr_and_index
+ENDIF
 .*get_last_tile
 	lda (zp_tileptr),Y
 	iny
@@ -1145,6 +1251,7 @@ ENDIF
 .check_trapdoor
 {
 	lda zp_moved_dir ; which direction we came from
+	bmi no
 	eor #4 ; rotate 180 degrees
 	tax
 	jsr get_player_tile_with_direction
@@ -1153,6 +1260,11 @@ ENDIF
 	dey
 	lda #$02
 	sta (zp_tileptr),Y ; replace with pit
+	lda zp_tmpy
+	pha
+	jsr wallpit_col
+	pla
+	sta zp_tmpy
 	; redraw tile and the two below
 	jsr redraw
 	inc zp_tmpy
@@ -1192,7 +1304,7 @@ ENDIF
 
 ;INCLUDE "exo.s"
 INCLUDE "hwscroll.s"
-
+INCLUDE "level.s"
 .abort
 {
 	cli
@@ -1201,7 +1313,7 @@ INCLUDE "hwscroll.s"
 	lda #12
 	jsr osword
 .halt	bne halt
-.flash	equb 0,10,0,0,0
+.flash	equb 2,10,0,0,0
 }
 	CLEAR $2300,$3000
 	GUARD $3000
@@ -1215,6 +1327,12 @@ INCLUDE "hwscroll.s"
 	sta $202
 	lda #>abort
 	sta $203
+IF PLATFORM_BBCB=0
+	ldy #FILE_tiles_exo
+	jsr load_and_decrunch
+ENDIF
+	jsr load_level
+
 .init_zp
 {
 	ldy #zp_stuff_end-zp_stuff-1
@@ -1223,8 +1341,8 @@ INCLUDE "hwscroll.s"
 	dey
 	bpl loop
 }
+
 	_print_string space,space_end
-	jsr osrdch ;wait for key
 IF SMALL_SCREEN
 	lda #<rowmult
 	sta $e0
@@ -1239,6 +1357,10 @@ IF SMALL_SCREEN
 	sta $fe00
 	lda #$80
 	sta $fe01 ; R13=$80, set screen start address to $3400
+	;lda #2
+	;sta $fe00
+	;lda #96
+	;sta $fe01 ; R2=96, shift screen right
 	lda #$34 ; screen start hi
 	sta $34e ; tell OS where screen starts
 	sta $351
@@ -1268,31 +1390,28 @@ IF 1
 }
 ENDIF
 ENDIF
-IF HWSCROLL
-	;lda #$60
-	;sta linetab_hi
-	;jsr hwscroll_set_linetab
-;	jsr hwscroll_set_6845
-	;jsr blank_3839
+
+IF PLATFORM_BBCB
+.load_tiles
+	ldy #FILE_tiles_exo
+	jsr load_and_init_decrunch
+	jsr fs_get_byte ; skip header
+	jsr fs_get_byte
+	lda #>(SPRTAB+$800)
+	sta zp_exo_dest_hi
+	lda #<(SPRTAB+$800)
+	sta zp_exo_dest_lo
+	ldx #1
 ENDIF
+	jsr osrdch ;wait for key
 	jmp start
 .space
-	equb 26,31,13,28,"[Press SPACE]",19,1,1,0,0,0,19,2,4,0,0,0
+	equb 26,31,13,28,"[Press SPACE]"
 .space_end
 }
 
 .zp_stuff
-.tilelinetab_copy
-IF 0
-; only even lines get a table entry
-FOR I,0,32,2
-    EQUW ((I-1)*40*2+room)
-NEXT
-ELSE
-FOR I,0,33,1
-    EQUW ((I-1)*40*2+room)
-NEXT
-ENDIF
+IF EXO_FROM_RAM	
 .get_crunched_byte_copy
 {
 	lda OVERW
@@ -1301,6 +1420,7 @@ ENDIF
         inc INPOS+1
 .s0a    rts
 }
+ENDIF	
 ; NW,N,NE,E,SE,S,SW,W,centre
 .dirtablex_copy
 	EQUB -1,0,1,1,1,0,-1,-1,0
@@ -1313,36 +1433,3 @@ ENDIF
 PRINT "load=",~start
 PRINT "exec=",~init
 SAVE "code", start, end, init
-IF 0
-PUTFILE "boot", "!BOOT", 0, 0
-PUTBASIC "drod.bas", "D"
-;PUTBASIC "introtest.bas", "D"
-PUTFILE "level01", "level01", $8000, $8000
-PUTFILE "level02", "level02", $8000, $8000
-PUTFILE "level03", "level03", $8000, $8000
-PUTFILE "level04", "level04", $8000, $8000
-PUTFILE "level05", "level05", $8000, $8000
-PUTFILE "level06", "level06", $8000, $8000
-PUTFILE "level07", "level07", $8000, $8000
-PUTFILE "level08", "level08", $8000, $8000
-PUTFILE "level09", "level09", $8000, $8000
-PUTFILE "level10", "level10", $8000, $8000
-PUTFILE "level11", "level11", $8000, $8000
-PUTFILE "level12", "level12", $8000, $8000
-PUTFILE "level13", "level13", $8000, $8000
-PUTFILE "level14", "level14", $8000, $8000
-PUTFILE "level15", "level15", $8000, $8000
-PUTFILE "level16", "level16", $8000, $8000
-PUTFILE "level17", "level17", $8000, $8000
-PUTFILE "level18", "level18", $8000, $8000
-PUTFILE "level19", "level19", $8000, $8000
-PUTFILE "level20", "level20", $8000, $8000
-PUTFILE "level21", "level21", $8000, $8000
-PUTFILE "level22", "level22", $8000, $8000
-PUTFILE "level23", "level23", $8000, $8000
-PUTFILE "level24", "level24", $8000, $8000
-;PUTFILE "level25", "level25", $8000, $8000
-PUTFILE "title.beeb", "title", $3000, $3000
-PUTFILE "dointro", "intro", $2500, $2500
-PUTFILE "tiles", "tiles", $2000, $2000
-ENDIF

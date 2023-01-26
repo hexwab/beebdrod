@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import png,argparse,sys,math,bbc
 
 ##########################################################################
@@ -6,8 +6,7 @@ import png,argparse,sys,math,bbc
 
 def save_file(data,path,options):
     if path is not None:
-        with open(path,'wb') as f:
-            f.write(''.join([chr(x) for x in data]))
+        with open(path,'wb') as f: f.write(bytearray(data))
 
         if options.inf:
             with open('%s.inf'%path,'wt') as f: pass
@@ -15,7 +14,7 @@ def save_file(data,path,options):
 ##########################################################################
 ##########################################################################
 
-def main(options):
+def png2bbc(options):
     if options.mode<0 or options.mode>6:
         print>>sys.stderr,'FATAL: invalid mode: %d'%options.mode
         sys.exit(1)
@@ -36,18 +35,18 @@ def main(options):
     
     if options.palette is not None:
         if len(options.palette)!=len(palette):
-            print>>sys.stderr,'FATAL: invalid mode %d palette - must have %d entries'%(options.mode,n)
+            print('FATAL: invalid mode %d palette - must have %d entries'%(options.mode,n),file=sys.stderr)
             sys.exit(1)
 
         palette=[]
         for i in range(len(options.palette)):
             if options.palette[i] not in "01234567":
-                print>>sys.stderr,'FATAL: invalid BBC colour: %s'%options.palette[i]
+                print('FATAL: invalid BBC colour: %s'%options.palette[i],file=sys.stderr)
                 sys.exit(1)
 
             for j in range(len(options.palette)):
                 if i!=j and options.palette[i]==options.palette[j]:
-                    print>>sys.stderr,'FATAL: duplicate BBC colour: %s'%options.palette[i]
+                    print('FATAL: duplicate BBC colour: %s'%options.palette[i],file=sys.stderr)
                     sys.exit(1)
 
             palette.append(int(options.palette[i]))
@@ -60,11 +59,11 @@ def main(options):
                        not options.quiet)
 
     if len(image[0])%pixels_per_byte!=0:
-        print>>sys.stderr,'FATAL: Mode %d image width must be a multiple of %d'%(options.mode,pixels_per_byte)
+        print('FATAL: Mode %d image width must be a multiple of %d'%(options.mode,pixels_per_byte),file=sys.stderr)
         sys.exit(1)
         
     if len(image)%8!=0:
-        print>>sys.stderr,'FATAL: image height must be a multiple of 8'
+        print('FATAL: image height must be a multiple of 8',file=sys.stderr)
         sys.exit(1)
 
     # print '%d x %d'%(len(image[0]),len(image))
@@ -84,7 +83,7 @@ def main(options):
                 try:
                     bbc_lidxs[-1].append(palette.index(image[y][x]))
                 except ValueError:
-                    print>>sys.stderr,'FATAL: (%d,%d): colour %d not in BBC palette'%(x,y,image[y][x])
+                    print('FATAL: (%d,%d): colour %d not in BBC palette'%(x,y,image[y][x]),file=sys.stderr)
                     sys.exit(1)
 
                 bbc_mask[-1].append(0)
@@ -124,7 +123,7 @@ def main(options):
 ##########################################################################
 ##########################################################################
 
-if __name__=='__main__':
+def main(argv):
     parser=argparse.ArgumentParser()
 
     parser.add_argument('-o',dest='output_path',metavar='FILE',help='output BBC data to %(metavar)s')
@@ -144,4 +143,10 @@ if __name__=='__main__':
     parser.add_argument('-q','--quiet',action='store_true',help='don\'t print warnings')
     parser.add_argument('input_path',metavar='FILE',help='load PNG data fro %(metavar)s')
     parser.add_argument('mode',type=int,help='screen mode')
-    main(parser.parse_args())
+    
+    png2bbc(parser.parse_args(argv))
+
+##########################################################################
+##########################################################################
+
+if __name__=='__main__': main(sys.argv[1:])

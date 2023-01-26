@@ -15,25 +15,6 @@ INCLUDE "hw.h"
 .master
 	; all masters have systype 3
 	ldx #3 ; PLATFORM_MASTER
-IF 0
-	; copy font back to $C000 from F:B900
-	; FIXME: need to fix up font properly
-	; FIXME: font must live elsewhere as DFS corrupts $C2xx
-	lda #15
-	jsr SelectROM2
-	ldy #0
-.fontloop
-	lda $b900,Y
-	sta $c000,Y
-	lda $ba00,Y
-	sta $c100,Y
-	lda $bb00,Y
-	sta $c200,Y
-	dey
-	bne fontloop
-ENDIF
-	lda #1
-	sta $291 ; turn interlace off: required for hwscroll
 	bra common
 .notmaster
 	cpx #0
@@ -47,44 +28,56 @@ ENDIF
 	; patch core for electron-specific stuff
 	dec t2a0_1+1
 	dec t2a0_2+1
-	bne common ; always
+	bne find_swram ; always
 }
 .notelectron
+.common
 	lda #1
 	sta $291 ; turn interlace off: required for hwscroll
+	cpx #2
+	beq bplus
+	bcs find_swram
 	ldx #2 ; PLATFORM_BEEB
-.common	
-	stx systype
-	ldx #15
+
+.find_swram
+	ldy #15
 .loop
-;{	txa
-;	ora #$40
-;	jsr oswrch
-;}
 	
 .romtable
-	lda $2a1,X ; skip active ROMs
+	lda $2a1,Y ; skip active ROMs
 	bne skip
-;{	txa
-;	ora #$40
-;	jsr oswrch
-;}
 .pageloc
 	jsr page
 	LDA &8008:EOR #&AA:STA &8008       :\ Modify version byte
 	CMP &AAAA:CMP &8008:BNE no 	   :\ NE=ROM or empty
 ;	EOR #&AA:STA &8008                 :\ Restore byte
-				; got one!
+	; got one!
 	rts
 .no
 .skip
-	dex
+	dey
 	bpl loop
-	; FIxME: run with PLATFORM_BBCB
+	txa
+	bne beeb
+	; electrons need SWRAM
 	brk
 	equb 0,"No SWRAM detected :(",0
+.beeb
+	dex ; downgrade to PLATFORM_BBCB
+	rts
+.bplus
+	; we perform the usual SWRAM check, but
+	; additionally page in the 12K shadow RAM.
+	; since we don't have a separate PLATFORM for B+
+	; we store the result in $F4:
+	; <$80: model B (no shadow screen available)
+	; $80-$8F: B+ with 16K of SWRAM (plus more paged out)
+	; $FF: B+ with 12K of SWRAM
+	jsr find_swram
+	tya
+	ora #128
 .page
-	lda #12:JSR SelectROM2:TXA
+	lda #12:JSR SelectROM2:TYA ; electrons require this dance
 .SelectROM2
 	sta &F4
 .romsel sta ROMSEL

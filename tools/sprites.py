@@ -26,7 +26,8 @@ with Image.open(sys.argv[1]) as image:
             #0x04: (3,22), #wall
             #0x64: (3,21), #wall
             #0x05: (1,2), #crumbly           
-            0x05: (4,15), #crumbly           
+            0x05: (4,16), #crumbly           
+            0x65: (4,15), #crumbly 2
             0x06: (17,3),#blue door
             0x07: (16,3),#green door
             0x08: (18,3),#red door
@@ -35,9 +36,9 @@ with Image.open(sys.argv[1]) as image:
             #0x0b: (1,1), #trapdoor
             0x0b: (7,15), #trapdoor
             0x0c: (0,15), #2x2 pillar
-            0x65: (1,15), #2x2 pillar
-            0x66: (0,16), #2x2 pillar
-            0x67: (1,16), #2x2 pillar
+            0x70: (1,15), #2x2 pillar
+            0x71: (0,16), #2x2 pillar
+            0x72: (1,16), #2x2 pillar
             #0x0c: (0,18), #2x2 pillar
             #0x65: (1,18), #2x2 pillar
             #0x66: (0,19), #2x2 pillar
@@ -54,8 +55,8 @@ with Image.open(sys.argv[1]) as image:
             0x12: (18,0),#force
             0x13: (14,2),#force
             0x14: (14,0),#force
-            0x15: (2,1), #unused
-            0x16: (2,1), #
+            0x15: (15,4), #invisibility potion
+            0x16: (14,4),#mimic potion
             0x17: (6,4), #scroll
             0x18: (2,2), #orb
 
@@ -93,23 +94,23 @@ with Image.open(sys.argv[1]) as image:
 
             0x63: (19,12), # tar mother (==0x23 | 0x40)
 
+            0x40: (11,7),# Beethro NW
+            0x41: (10,5),# Beethro N
             0x42: (0,7), # Beethro NE
             0x43: (2,6), # Beethro E
             0x44: (8,4), # Beethro SE
             0x45: (9,6), # Beethro S
             0x46: (7,6), # Beethro SW
             0x47: (5,7), # Beethro W
-            0x40: (11,7),# Beethro NW
-            0x41: (10,5),# Beethro N
 
+            0x48: (10,6),# sword NW
+            0x49: (10,4),# sword N
             0x4a: (1,6), # sword NE
             0x4b: (3,6), # sword E
             0x4c: (9,5), # sword SE
             0x4d: (9,7), # sword S
             0x4e: (6,7), # sword SW
             0x4f: (4,7), # sword W
-            0x48: (10,6),# sword NW
-            0x49: (10,4),# sword N
 
             #0x50: (3,11),# title NW
             #0x51: (4,11),# title N
@@ -163,7 +164,13 @@ with Image.open(sys.argv[1]) as image:
                         byte = 0
                         for dx in range(4):
                             colour = image.getpixel((x+dx+srcx, y+dy+srcy))
-                            if colour==4: colour = 2 # FIXME: masking
+                            if colour==4:
+                                colour = 0
+                            elif colour==0:
+                                colour = 2
+                            elif colour==2:
+                                colour = 0
+                                # FIXME: masking?
                             assert (colour < 4)
                             value = (0,1,0x10,0x11)[colour]
                             byte = (byte<<1) | value

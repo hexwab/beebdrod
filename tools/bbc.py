@@ -99,6 +99,29 @@ def pack_1bpp(pixels):
 ##########################################################################
 ##########################################################################
 
+def pack_image(image,bpp):
+    if bpp==1: pack_fn=pack_1bpp
+    elif bpp==2: pack_fn=pack_2bpp
+    elif bpp==4: pack_fn=pack_4bpp
+    else: raise RuntimeError('invalid bpp')
+
+    bypp=8//bpp
+    
+    assert len(image)%8==0
+    for y in range(len(image)):
+        if y>0: assert len(image[y])==len(image[y-1])
+        assert len(image[y])%bypp==0
+    data=[]
+    for row in range(len(image)//8):
+        for x in range(0,len(image[0]),bypp):
+            for scanline in range(8):
+                byte=pack_fn(image[row*8+scanline][x:x+bypp])
+                data.append(byte)
+    return data
+    
+##########################################################################
+##########################################################################
+
 def load_png(path,
              mode,
              halve_width=False,
@@ -160,7 +183,7 @@ transparent.
                     if p[i]!=0 and p[i]!=255:
                         p=find_closest_rgb(p)
                         if print_warnings:
-                            print>>sys.stderr,'Non-BBC Micro colour %s at (%d,%d) - using %s'%(pixels[y][x],x,y,p)
+                            print('Non-BBC Micro colour %s at (%d,%d) - using %s'%(pixels[y][x],x,y,p),file=sys.stderr)
                         break
 
                 pidx=rgbs.index((p[0],p[1],p[2]))
@@ -171,4 +194,3 @@ transparent.
         assert len(pixels[y])==len(pixels[y-1])
 
     return pidxs
-                            

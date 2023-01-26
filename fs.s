@@ -28,15 +28,12 @@ SECTORS_PER_TRACK=10 ; maybe 11 if we need more space?
 ;CAT_HI_OFFSET=$90 ; $20+($100-$10)/2
 CAT_LO_OFFSET=$30 ; leave four files for DFS, 104 for us
 CAT_HI_OFFSET=$98 ; $30+($100-$30)/2
-START_TRACK=1 ; where data starts. this gives us 2K for boot code
-NEED_LOAD_FILE_TO=1
 
 SECBUF=$700
 CATBUF=SECBUF
 SEPARATE_CATBUF=0
 CATLO=CATBUF+CAT_LO_OFFSET
 CATHI=CATBUF+CAT_HI_OFFSET
-zp_fs_tmpcount=$9f
 zp_fs_tmphi=$9f
 	;INCLUDE "os.h"
 	;ORG $400
@@ -56,8 +53,8 @@ zp_fs_tmphi=$9f
 	stx xtmp+1
 	sty ytmp+1
 	jsr get_next_sector
-.xtmp	ldx #$ee
-.ytmp	ldy #$ee
+.xtmp	ldx #OVERB
+.ytmp	ldy #OVERB
 	plp
 	pla
 	rts
@@ -80,33 +77,16 @@ BUFOFF=secbufptr+1
 	; cat in Y
 .load_and_init_decrunch
 {
-	jsr get_from_cat
-	jsr get_next_sector
-}
 .init_get_byte_for_exo
-{
-IF 1
-	; 12 bytes
 	lda #$4C ; JMP
 	sta get_crunched_byte
 	lda #<fs_get_byte
 	sta get_crunched_byte+1
 	lda #>fs_get_byte
 	sta get_crunched_byte+2
-	rts
-ELSE
-	; 13 bytes
-	ldy #2
-.loop
-	lda igbfe_tab,Y
-	sta get_crunched_byte,Y
-	dey
-	bpl loop
-	rts
-.igbfe_tab
-	equb $4C
-	equw fs_get_byte
-ENDIF
+.*get_cat_and_sector
+	jsr get_from_cat
+	jmp get_sector
 }
 
 ; parameter block for OSWORD $7F
@@ -137,29 +117,19 @@ IF SEPARATE_CATBUF=0
 	sty diskblk_track
 	iny
 	sty diskblk_sector
-	jsr do_osword
+	jsr get_sector
 ELSE
 	; assume it's already loaded (at F00?)
 ENDIF
-	; data starts at track 1 sector 0
-IF 1
 	ldy #0
 	sty diskblk_sector
 	sty BUFOFF
-	iny
-	sty diskblk_track
-ELSE
-	dec diskblk_sector ; 1->0
-	inc diskblk_track  ; 0->1
-	; FIXME: still need to zero bufptr offset
-ENDIF
-
 
 	; loop over all catalogue entries in turn, incrementing the
 	; offset as we go
-	ldy #0
-.cat_entry
-	cpy #$ee
+	;ldy #0
+.*cat_entry
+	cpy #OVERB
 	beq done
 .loop
 	lda BUFOFF ; lo byte
@@ -183,45 +153,25 @@ ENDIF
 	rts
 }
 
-IF NEED_LOAD_FILE_TO=1
-; Y=catalogue entry, AX=location
-.load_file_to
+	; skip forward XA bytes
+.fs_skip_word
 {
-	stx dst+1
-	sta dst+2
-	jsr get_from_cat
-	jsr get_cat_length
-	sta zp_fs_tmphi
-	jsr get_next_sector_and_byte ; byte is unused here
-	ldy #0
-.loop
-	jsr fs_get_byte
-.dst
-	sta $ee00,Y
-	iny
-	bne noinc
-	inc dst+2
-.noinc
-	dex
-	bne loop
-	dec zp_fs_tmphi
-	bpl loop
-	rts
-}	
-ENDIF
-
+	pha
+	txa
+	clc
+	adc diskblk_sector
+	jsr possibly_inc_track
+	pla
+}
 	; skip forward A bytes
 .fs_skip
 {
 	clc
-	adc secbufptr+1
-	sta secbufptr+1
-	bcs get_next_sector
-	rts
-}	
+	adc BUFOFF
+	sta BUFOFF
+	bcc fs_exit
+}
 
-.get_next_sector
-	jsr do_osword
 .inc_sector
 {
 	ldx diskblk_sector
@@ -236,37 +186,71 @@ ENDIF
 	cmp #SECTORS_PER_TRACK
 	bcc noinc
 	inc diskblk_track
-	;sec
 	sbc #SECTORS_PER_TRACK
 	bpl incloop ; always
 .noinc
 	sta diskblk_sector
+.*fs_exit
 	rts
 }
 
-.do_osword
+.get_next_sector
+	jsr inc_sector
+.get_sector
 	ldx #<diskblk
 	ldy #>diskblk
 	lda #$7f
-	jsr osword
-	lda diskblk+10 ; result
-	bne error
-	rts
-.error	brk
+;	jsr osword
+;	lda diskblk+10 ; result
+;	bne error
+;	rts
+;.error	brk
+	jmp osword
 
-IF 0
-.get_next_sector
-	jsr do_osword
-	; A=0 for success
-	inc diskblk_sector
-	ldx #SECTORS_PER_TRACK
-	cmp diskblk_sector
-	bne noinc
-	sta diskblk_sector ; reset to zero
-	inc diskblk_track
-.noinc
+.fs_get_loc
+{
+	lda BUFOFF
+	ldx diskblk_sector
+	ldy diskblk_track
 	rts
-ENDIF
+}
+.fs_set_loc
+{
+	sta BUFOFF
+	stx diskblk_sector
+	sty diskblk_track
+	rts
+}
+
+; this too can be overwritten if unneeded
+; Y=catalogue entry, AX=location
+.load_file_to
+{
+	stx dst+1
+	sta dst+2
+	jsr get_from_cat
+	jsr get_cat_length
+	sta zp_fs_tmphi
+	txa
+	pha
+	jsr get_sector
+	pla
+	tax
+	ldy #0
+.loop
+	jsr fs_get_byte
+.dst
+	sta $ee00,Y
+	iny
+	bne noinc
+	inc dst+2
+.noinc
+	dex
+	bne loop
+	dec zp_fs_tmphi
+	bpl loop
+	rts
+}
 
 ; initialization (can be overwritten)
 .fs_init

@@ -573,37 +573,33 @@ ENDIF
 	; now zp_tmpchar has 4 bits of pixel data in 3:0
 	lda zp_tmpchar
 	and #$0f
-	eor #$0f
-	ldy zp_tmproomno
-	cpy zp_roomno
-	beq h
-	; FIXME: colours
-IF MUL17TABLE
 	tay
 	lda MUL17TABLE,Y
-ELSE
-	sta multmp+1
-	asl a
-	asl a
-	asl a
-	asl a
-.multmp	ora #$ee
-ENDIF
-.h
+	ldy zp_tmproomno
+	cpy zp_roomno
+	php
 	ldy zp_screen_hoffset
 	; fixup left/right borders (present in map, but we don't want them)
 	bne notzero
 	; remove left border
-	;ora #$88
-	and #$77
+	ora #$88
 .notzero
 	cpy #72
 	bne not72
 	; remove right border
-	;ora #$11 
-	and #$ee
+	ora #$11 
 .not72
-	
+	plp
+	beq h
+	and #$0f
+	eor #$ff
+	jmp j
+.h
+	; highlighted room
+	and #$ff
+	eor #$0f
+.j
+
 	
 .screenptr
 	sta (zp_screenptr),Y

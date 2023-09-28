@@ -80,7 +80,10 @@ ENDIF
 	lda #19
 	jsr osbyte
 	_print_string screen_set,screen_set_end
-	jsr set_level
+	lda levelno
+	bne no
+	dec levelno
+.no	jsr set_level
 .restart
 	ldy #0
 .mainloop
@@ -128,12 +131,24 @@ ENDIF
 .dokey
 {	
 	cpx #$8B
+	beq up
+	cpx #$89
+	beq up
+	cpx #'.'
+	beq up
+	cpx #'>'
 	bne notup
 .up
 	jsr inc_level
 	jmp donekey
 .notup
 	cpx #$8A
+	beq down
+	cpx #$88
+	beq down
+	cpx #','
+	beq down
+	cpx #'<'
 	bne notdown
 .down
 	jsr dec_level
@@ -142,7 +157,13 @@ ENDIF
 .notdown	
 .done
 	jsr deinit_timer
+	ldy levelno
+	bmi story
 	ldy #FILE_intro_exo
+	jmp chain
+.story
+	inc levelno
+	ldy #FILE_story_exo
 	jmp chain
 .screen_blank_clear_white
 	equb 19,3,0,0,0,0,19,2,0,0,0,0,19,1,0,0,0,0,17,131,12
@@ -151,24 +172,43 @@ ENDIF
 .screen_set
 	equs " version"
 	equb 19,1,1,0,0,0,19,2,5,0,0,0,19,3,7,0,0,0
-	equb 31,24,8,"Level"
+	equb 31,20,8
+	equb 23,255,$0c,$18,$30,$7f,$30,$18,$0c,$00,255
+	equb 31,36,8
+	equb 23,255,$30,$18,$0c,$fe,$0c,$18,$30,$00,255
 .screen_set_end
+.level_start
+	equb 31,22,8,"   Level",32
+.level_end
+.story_start
+	equb 31,22,8,"The Beginning"
+.story_end
+
+.tab_xy
+	lda #31
+.oswrch_axy
+	jsr oswrch
+	txa
+.oswrch_ay
+	jsr oswrch
+	tya
+	jmp oswrch
+
 .dec_level
 	dec levelno
 	jmp set_level
 .inc_level
 	inc levelno
 .set_level
-	lda #31
-	jsr oswrch
-	lda #30
-	jsr oswrch
-	lda #8
-	jsr oswrch
 	lda levelno
-	bmi inc_level
+	cmp #254
+	beq inc_level
+	cmp #255
+	beq beginning
 	cmp #25
 	beq dec_level
+	_print_string level_start,level_end
+	lda levelno
 	clc
 	adc #1
 	cmp #20
@@ -191,8 +231,16 @@ ENDIF
 	adc #48
 	jsr oswrch
 	lda #32
-	jmp oswrch
-	
+	ldx #3
+.loop
+	jsr oswrch
+	dex
+	bne loop
+	rts
+.beginning
+	_print_string story_start,story_end
+	rts
+
 .systype_ptr
 {
 	equb elk-systype_text
@@ -201,9 +249,9 @@ ENDIF
 	equb master-systype_text
 .*systype_text
 .elk	equs "Electron",0
-.bbcb	equs "BBC B",0
+.bbcb	equs "  BBC B",0
 .beeb	equs "Enhanced",0
-.master	equs "Master",0
+.master	equs " Master",0
 }
 
 VSYNC=$4e3c

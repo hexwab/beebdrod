@@ -361,9 +361,9 @@ IF ENTIRE_LEVEL
 .orbdone
 ENDIF
 
-IF PLATFORM_ELK
+;IF PLATFORM_ELK OR SMALL_SCREEN
 	jsr hwscroll_screen_on
-ENDIF
+;ENDIF
 
 IF SHADOW_MAP
 	jsr update_map
@@ -1305,15 +1305,23 @@ ENDIF
 ;INCLUDE "exo.s"
 INCLUDE "hwscroll.s"
 INCLUDE "level.s"
+.setpal
+{
+	stx paltab
+	sta paltab+1
+	ldx #<paltab
+	ldy #>paltab
+	lda #12
+	jmp osword
+.paltab	equb 0,0,0,0,0
+}
 .abort
 {
 	cli
-	ldx #<flash
-	ldy #>flash
-	lda #12
-	jsr osword
+	ldx #2
+	lda #10
+	jsr setpal
 .halt	bne halt
-.flash	equb 2,10,0,0,0
 }
 	CLEAR $2300,$3000
 	GUARD $3000
@@ -1344,31 +1352,6 @@ ENDIF
 
 	_print_string space,space_end
 IF SMALL_SCREEN
-	lda #<rowmult
-	sta $e0
-	lda #>rowmult
-	sta $e1 ; tell OS about new line spacing
-	; this is model B only
-	lda #1
-	sta $fe00
-	lda #76
-	sta $fe01 ; R1 (chars per line)=76
-	lda #13
-	sta $fe00
-	lda #$80
-	sta $fe01 ; R13=$80, set screen start address to $3400
-	;lda #2
-	;sta $fe00
-	;lda #96
-	;sta $fe01 ; R2=96, shift screen right
-	lda #$34 ; screen start hi
-	sta $34e ; tell OS where screen starts
-	sta $351
-	lda #$60 ; low byte of bytes per line
-	sta $352
-	lda #$4c ; screen size: only needed for hw scrolling
-	sta $354
-IF 1
 .makerowmult
 {
 	ldx #0
@@ -1387,8 +1370,11 @@ IF 1
 	inx
 	cpx #62
 	bne loop
+	lda #<rowmult
+	sta $e0
+	lda #>rowmult
+	sta $e1 ; tell OS about new line spacing
 }
-ENDIF
 ENDIF
 
 IF PLATFORM_BBCB
@@ -1401,13 +1387,71 @@ IF PLATFORM_BBCB
 	sta zp_exo_dest_hi
 	lda #<(SPRTAB+$800)
 	sta zp_exo_dest_lo
+ENDIF
+
+	jsr osrdch ;wait for key
+
+IF PLATFORM_ELK=0
+	jsr hwscroll_screen_off
+	lda #2
+	sta $fe00
+	lda #96
+	sta $fe01 ; R2=96, shift screen right
+	lda #154
+	ldx #$d8
+	jsr osbyte
+ELSE
+	lda $282
+	and #$c7
+	ora #$08
+	sta $282
+	jsr hwscroll_screen_off
+ENDIF	
+	ldx #3
+{
+.loop
+	stx xtmp+1
+	lda palette,X
+	jsr setpal
+.xtmp	ldx #OVERB
+	dex
+	bpl loop
+}
+IF SMALL_SCREEN
+	; this is model B only
+	lda #1
+	sta $fe00
+	lda #76
+	sta $fe01 ; R1 (chars per line)=76
+	lda #13
+	sta $fe00
+	lda #$80
+	sta $fe01 ; R13=$80, set screen start address to $3400
+	lda #$34 ; screen start hi
+	sta $34e ; tell OS where screen starts
+	sta $351
+	lda #$60 ; low byte of bytes per line
+	sta $352
+	lda #$4c ; screen size: only needed for hw scrolling
+	sta $354
+ELSE
+	_print_string blank3839,blank3839_end
+	jsr hwscroll_screen_on
+ENDIF
+IF PLATFORM_BBCB
 	ldx #1
 ENDIF
-	jsr osrdch ;wait for key
 	jmp start
 .space
-	equb 26,31,13,28,"[Press SPACE]"
+	equb 26,31,13,28,17,1,"[Press SPACE]"
 .space_end
+.blank3839
+	;equb 28,38,31,39,0,17,128+BACKG_COL,12,30
+	equb 30,17,128+BACKG_COL,12
+.blank3839_end
+.palette
+	equb 4,1,0,7
+.end
 }
 
 .zp_stuff

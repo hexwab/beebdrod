@@ -7,6 +7,15 @@
 	
 	include "core.s"
 .boot_init
+	; disable tube
+	lda #234
+	ldx #0
+	jsr osbyte
+	; implode charset
+	lda #20
+	ldx #0
+	jsr osbyte
+	; ack escape
 	sec
 	ror $ff
 	lda #126
@@ -27,9 +36,7 @@
 	lda #200
 	ldx #1
 	jsr osbyte
-	lda #234
-	ldx #0
-	jsr osbyte
+	jsr fs_init
 	ldy #FILE_titlecode_exo
 	lda systype
 	bne notelk

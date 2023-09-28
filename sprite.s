@@ -487,6 +487,17 @@ ENDIF
 }
 ENDIF	
 .linetab_lo
+IF PLATFORM_ELK
+	; move one tile across as we can't set the hwscroll address
+	; with sufficient granularity
+FOR I,0,32,1
+	EQUB <(I*XRES*16+SCRSTART+16)
+NEXT
+.linetab_hi
+FOR I,0,32,1
+	EQUB >(I*XRES*16+SCRSTART+16)
+NEXT
+ELSE
 FOR I,0,32,1
 	EQUB <(I*XRES*16+SCRSTART)
 NEXT
@@ -494,6 +505,7 @@ NEXT
 FOR I,0,32,1
 	EQUB >(I*XRES*16+SCRSTART)
 NEXT
+ENDIF
 .mul16_lo
 FOR I,0,42,1
 	EQUB <(I*16)

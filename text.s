@@ -18,6 +18,9 @@ IF MINI=1
 	stx xtmp+1
 	sty ytmp+1
 	ldx $318
+IF PLATFORM_ELK
+	dex
+ENDIF
 	ldy $319
 	lda linetab_lo,Y
 	clc

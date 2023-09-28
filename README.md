@@ -18,3 +18,16 @@ Keys:
 * m: map
 * r: restart room
 * cursors: move by an entire room (for debugging)
+
+Building:
+
+You will need:
+* [beebasm](https://github.com/stardot/beebasm)
+* [Exomizer](https://bitbucket.org/magli143/exomizer/wiki/Home) 3.0.1 (or 3.0.2)
+* Python 3
+* PIL
+* [pypng](https://github.com/drj11/pypng)
+* Perl
+* [Metakit](https://www.equi4.com/metakit.html)
+* Freetype
+* [Font::FreeType](https://metacpan.org/dist/Font-FreeType)

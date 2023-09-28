@@ -48,6 +48,11 @@ ENDIF
 {
 	lda #0
 	sta zapcount
+IF PLATFORM_ELK
+	; gfx origin x=32
+	lda #$20
+	sta $30c
+ENDIF
 	ldx zp_tmpy
 	ldy zp_tmpx
 	

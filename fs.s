@@ -200,12 +200,12 @@ ENDIF
 	ldx #<diskblk
 	ldy #>diskblk
 	lda #$7f
-;	jsr osword
-;	lda diskblk+10 ; result
-;	bne error
-;	rts
+	jsr osword
+	lda diskblk+10 ; result
+	bne get_sector
+	rts
 ;.error	brk
-	jmp osword
+;	jmp osword
 
 .fs_get_loc
 {
@@ -262,6 +262,7 @@ ENDIF
 	jsr osgbpb ; read drive+dir
 	lda gbpb_block+1
 	and #3
+	ora #$20
 	sta diskblk_drive
 	rts
 .gbpb_block

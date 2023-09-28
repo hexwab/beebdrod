@@ -74,6 +74,7 @@ INCLUDE "hw.h"
 	; $80-$8F: B+ with 16K of SWRAM (plus more paged out)
 	; $FF: B+ with 12K of SWRAM
 	jsr find_swram
+	ldx #2 ; restore PLATFORM_BEEB even if no SWRAM
 	tya
 	ora #128
 .page

@@ -108,21 +108,6 @@ ENDIF
 	lda #DELAY
 	cmp $251
 	bne wait
-IF 0
-	{	lda timer_flag
-	beq ok
-	brk
-.ok
-}
-IF 1
-	lda #1
-.wait2
-	bit timer_flag
-	beq wait2
-ENDIF
-ENDIF
-	;lda #$f3
-	;sta $fe21
 .ytmp	ldy #$ee
 	iny
 	cpy #8
@@ -156,7 +141,10 @@ ENDIF
 }
 .notdown	
 .done
+	lda #19
+	jsr osbyte
 	jsr deinit_timer
+	_print_string screen_clear_2,screen_clear_2_end
 	ldy levelno
 	bmi story
 	ldy #FILE_intro_exo
@@ -169,6 +157,9 @@ ENDIF
 	equb 19,3,0,0,0,0,19,2,0,0,0,0,19,1,0,0,0,0,17,131,12
 	equb 31,20,4,17,0
 .screen_blank_clear_white_end
+.screen_clear_2
+	equb 19,0,7,0,0,0,19,2,7,0,0,0,19,1,7,0,0,0
+.screen_clear_2_end
 .screen_set
 	equs " version"
 	equb 19,1,1,0,0,0,19,2,5,0,0,0,19,3,7,0,0,0
@@ -183,16 +174,6 @@ ENDIF
 .story_start
 	equb 31,22,8,"The Beginning"
 .story_end
-
-.tab_xy
-	lda #31
-.oswrch_axy
-	jsr oswrch
-	txa
-.oswrch_ay
-	jsr oswrch
-	tya
-	jmp oswrch
 
 .dec_level
 	dec levelno
@@ -335,47 +316,34 @@ ELSE
 .*oldirq
 	jmp $ffff
 .uservia
-	lda USERVIA_T1CL ; clear interrupt
+	;lda USERVIA_T1CL ; clear interrupt
 	lda timer_flag
 	bne vsync
 .timer
-	lda #$26
-	sta $fe21
-	lda #$36
-	sta $fe21
-	lda #$66
-	sta $fe21
-	lda #$76
-	sta $fe21
-	;lda #$f7
-	;sta $fe21
-	lda #1
-	sta timer_flag
 	lda #LO(TIMER1)
 	sta USERVIA_T1LL
 	lda #HI(TIMER1)
 	sta USERVIA_T1LH
+	lda #$26
+.setpal
+	sta $fe21
+	ora #$10
+	sta $fe21
+	ora #$40
+	sta $fe21
+	and #$ef
+	sta $fe21
+	and #2
+	sta timer_flag
 	lda $fc
 	rti
 .vsync
-	lda #$24
-	sta $fe21
-	lda #$34
-	sta $fe21
-	lda #$64
-	sta $fe21
-	lda #$74
-	sta $fe21
-	;lda #$f3
-	;sta $fe21
 	lda #LO(TIMER2)
 	sta USERVIA_T1LL
 	lda #HI(TIMER2)
 	sta USERVIA_T1LH
-	lda #0
-	sta timer_flag
-	lda $fc
-	rti
+	lda #$24
+	bne setpal
 ENDIF
 }
 	INCLUDE "heads.s"

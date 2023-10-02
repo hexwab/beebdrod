@@ -1,3 +1,5 @@
+; intro.s: level intro screen
+
 loc=$1100 ; where we decompress to
 headlo=loc
 headhi=loc+9
@@ -40,21 +42,21 @@ chars=$2000
 	ldy #FILE_font_headline_exo
 	jsr load_and_decrunch
 .draw_title
+	lda #19
+	jsr osbyte
 	lda systype
 	cmp #1 ;PLATFORM_BBCB
 	bne notbbcb
 .bbcb
 	; reset small screen
-	ldy #8
-	lda #$f0
-	jsr $c985
 	ldy #1
-	lda #80
+	lda #80 ; displayed chars
+	ldx #98 ; hsync pos
 	sta $354
-	jsr $c985
+	jsr $ca2b ; set two regs
 	lda #$30
 	sta $34e
-	;ldx #0
+	;ldx #0 ; 6845 address will be set elsewhere
 	;jsr $c9b3
 	lda #$75
 	sta $e0
@@ -69,25 +71,25 @@ chars=$2000
 	ldx levelidx
 	ldy nameidx,X
 	ldx #255
+	; stash level name for map screen
 .nameloop
 	iny
 	inx
 	lda nameptr+4,Y
 	sta namestash,X
-	;php
-	;jsr packed_wrch
-	;plp
 	bpl nameloop
-
+	; print level name
 	ldx levelidx
 	lda #<(nameptr)
 	clc
 	adc nameidx,X
 	sta get_byte+1
 	jsr dopage
+	; space before "Level"
 	lda #20
 	jsr moveright
-{
+
+	; print "Level"
 	ldx #4
 .loop
 	stx xtmp+1
@@ -98,21 +100,6 @@ chars=$2000
 	dex
 	bpl loop
 }
-}
-
-IF 0
-{
-	ldx levelidx
-	ldy nameidx,X
-.nameloop
-	lda nameptr,Y
-	beq done
-	jsr packed_wrch
-	iny
-	bpl nameloop ;always
-.done
-}
-ENDIF
 
 .draw_intro_window
 	_print_string level_intro_window,level_intro_window_end
@@ -146,6 +133,7 @@ ENDIF
 	rts
 }
 
+; set the screen up for MODE 0. no clearing, no palette changes
 .setmode0
 	lda systype
 	beq elk
@@ -173,13 +161,13 @@ ENDIF
 	;equb 19,2,0,0,0,0,19,3,7,0,0,0
 	;equb 26,17,128+BACKG_COL,12
 	;equb 17,131,17,BACKG_COL
-	equb 23,1,0,0,0,0,0,0,0,0
-	equb 19,2,0,0,0,0,19,0,7,0,0,0
-	equb 19,3,0,0,0,0,19,1,7,0,0,0
+	;equb 23,1,0,0,0,0,0,0,0,0
+	equb 19,2,7,0,0,0,19,0,7,0,0,0
+	equb 19,3,7,0,0,0,19,1,7,0,0,0
 	equb 26,17,128,12
+	equb 19,2,0,0,0,0,19,3,0,0,0,0
 	;28,0,31,37,0,
 	equb 31,10,3
-	equb 23,0,2,98,0,0,0,0,0,0
 .level_title_window_end
 
 .level_intro_window

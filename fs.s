@@ -30,10 +30,9 @@ CAT_LO_OFFSET=$30 ; leave four files for DFS, 104 for us
 CAT_HI_OFFSET=$98 ; $30+($100-$30)/2
 
 SECBUF=$700
-CATBUF=SECBUF
-SEPARATE_CATBUF=0
-CATLO=CATBUF+CAT_LO_OFFSET
-CATHI=CATBUF+CAT_HI_OFFSET
+CATBUF=$af00
+CATLO=SECBUF+CAT_LO_OFFSET
+CATHI=SECBUF+CAT_HI_OFFSET
 zp_fs_tmphi=$9f
 	;INCLUDE "os.h"
 	;ORG $400
@@ -77,13 +76,8 @@ BUFOFF=secbufptr+1
 	; cat in Y
 .load_and_init_decrunch
 {
-.init_get_byte_for_exo
-	lda #$4C ; JMP
-	sta get_crunched_byte
-	lda #<fs_get_byte
-	sta get_crunched_byte+1
-	lda #>fs_get_byte
-	sta get_crunched_byte+2
+.*init_exo_fixup
+	jsr init_get_byte_for_exo
 .*get_cat_and_sector
 	jsr get_from_cat
 	jmp get_sector
@@ -94,7 +88,7 @@ BUFOFF=secbufptr+1
 .diskblk_drive
 	equb 0 ; drive number
 	equw SECBUF ; buffer address
-	equw $ffff
+	equw $ffff ; I/O space
 	equb 3 ; 3 command parameters
 	equb &53 ; read data multi-sector
 .diskblk_track
@@ -107,20 +101,17 @@ BUFOFF=secbufptr+1
 
 ; Y=catalogue entry. Y preserved
 ; track,sector,offset set
-.get_from_cat
+.*get_from_cat
 {
 	sty cat_entry+1
 
-IF SEPARATE_CATBUF=0
 	; load catalogue from track 0 sector 1
 	ldy #0
 	sty diskblk_track
 	iny
 	sty diskblk_sector
+.*get_cat_sector_fixup
 	jsr get_sector
-ELSE
-	; assume it's already loaded (at F00?)
-ENDIF
 	ldy #0
 	sty diskblk_sector
 	sty BUFOFF
@@ -134,9 +125,11 @@ ENDIF
 .loop
 	lda BUFOFF ; lo byte
 	clc
+.*cat_fixup_1
 	adc CATLO,Y
 	sta BUFOFF
 	lda diskblk_sector ; hi byte
+.*cat_fixup_2
 	adc CATHI,Y
 	jsr possibly_inc_track
 	iny
@@ -148,7 +141,9 @@ ENDIF
 ; Y=catalogue entry
 .get_cat_length
 {
+.*cat_fixup_3
 	lda CATHI,Y
+.*cat_fixup_4
 	ldx CATLO,Y
 	rts
 }
@@ -264,9 +259,18 @@ ENDIF
 	and #3
 	ora #$20
 	sta diskblk_drive
+
+.init_get_byte_for_exo
+	lda #$4C ; JMP
+	sta get_crunched_byte
+	lda #<fs_get_byte
+	sta get_crunched_byte+1
+	lda #>fs_get_byte
+	sta get_crunched_byte+2
 	rts
 .gbpb_block
-	equd gbpb_block
+	equw gbpb_block
+	equw $ffff ; I/O space
 	
 .fs_end
 ;PUTBASIC "fstest.bas","fstest"

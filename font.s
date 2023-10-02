@@ -150,7 +150,8 @@ widthhi=chars+2+nchars
 	sta fontptr+1
 .atmp
 	lda #$ee ; and the rest
-	and #$0f
+	sec
+	sbc #$10
 	bpl redo ; always
 .bad
 	brk
@@ -170,7 +171,7 @@ widthhi=chars+2+nchars
 	sta fontptr+1
 	lda widthhi,X
 	adc #8
-	lsr a
+	ror a
 	lsr a
 	lsr a
 	;clc
@@ -408,9 +409,9 @@ widthhi=chars+2+nchars
 	lda fontptr
 	adc drawnlines
 	sta fontptr
-	lda fontptr+1
-	adc #0
-	sta fontptr+1
+	bcc noinc
+	inc fontptr+1
+.noinc
 	jmp doplot
 
 .reallydone

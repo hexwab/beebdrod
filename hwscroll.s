@@ -15,6 +15,9 @@ ENDIF
 
 hwscroll_addr_lo=$350
 hwscroll_addr_hi=$351
+IF PLATFORM_BBCB
+	hwscroll_write_reg=$c985
+ENDIF
 
 IF PLATFORM_ELK=0
 .hwscroll_screen_off
@@ -23,8 +26,12 @@ IF PLATFORM_ELK=0
 	equb $2c
 .*hwscroll_screen_on
 	lda #$00
-	ldx #8
+	ldy #8
+IF PLATFORM_BBCB
+	jmp hwscroll_write_reg
+ELSE
 	bne hwscroll_write_reg ; always
+ENDIF
 }
 
 IF HWSCROLL
@@ -63,6 +70,10 @@ ENDIF
 {	
 	ldx hwscroll_addr_lo
 	lda hwscroll_addr_hi
+	ldy #12
+IF PLATFORM_BBCB
+	jmp $ca17 ; set address
+ELSE
 	stx zp_temp
 	lsr a
 	ror zp_temp
@@ -70,15 +81,15 @@ ENDIF
 	ror zp_temp
 	lsr a
 	ror zp_temp
-	ldx #12
-	stx $fe00
+	sty $fe00
 	sta $fe01 ; screen start lo
 	lda zp_temp
-	inx
+	iny
 .*hwscroll_write_reg
-	stx $fe00
+	sty $fe00
 	sta $fe01 ; screen start hi
 	rts
+ENDIF
 }
 
 IF HWSCROLL

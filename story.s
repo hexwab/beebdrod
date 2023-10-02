@@ -90,10 +90,10 @@ caploc=$3518
 	jmp $e495
 
 .story_window
-	equb 23,1,0,0,0,0,0,0,0,0
+	;equb 23,1,0,0,0,0,0,0,0,0
+	equb 26,17,128,12
 	equb 19,2,0,0,0,0,19,0,7,0,0,0
 	equb 19,3,0,0,0,0,19,1,7,0,0,0
-	equb 26,17,128,12
 .story_window_end
 
 .pagetablo

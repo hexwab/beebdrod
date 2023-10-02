@@ -52,7 +52,7 @@ for (0..$head{chars}-1) {
 	my $e=$c{encoding};
 	die unless $e;
 	$chars{$e}=$c{bitmap};
-	$_.='0000' for @{$chars{$e}}; # add two bytes of padding
+	$_.='000000' for @{$chars{$e}}; # add three bytes of padding
 	$c{dwidth}=~/(\d+) (\d+)/ or die;
 	$widths{$e}=$1;
 	unless ($widths{$e}<=16) {
@@ -67,14 +67,14 @@ for (0..$head{chars}-1) {
     #print join",",@{$chars{$e}};
     #print "\n";
     for my $y (0..$ypad-1) {
-	push @{$chars{$e}},'000000';
+	push @{$chars{$e}},'00000000';
     }
     #print "$e $h{bbx}\n";
     #print join",",@{$chars{$e}};
     #print "\n";
     die "$e: $fheight ".scalar@{$chars{$e}} if scalar@{$chars{$e}}>$fheight;
     while (@{$chars{$e}}<$fheight) {
-	unshift @{$chars{$e}},'000000';
+	unshift @{$chars{$e}},'00000000';
     }
 }
 push @b, \%c;
@@ -124,6 +124,10 @@ for my $e (@c) {
     if ($widths{$ee}>16) {
 	# maybe third byte
 	push @enc, $_ for map {/[0-9A-F]{4}([0-9A-F]{2})/ or die $_ ; hex $1} @ch;
+    }
+    if ($widths{$ee}>24) {
+	# maybe fourth byte
+	push @enc, $_ for map {/[0-9A-F]{6}([0-9A-F]{2})/ or die $_ ; hex $1} @ch;
     }
 
     print join",",@enc;

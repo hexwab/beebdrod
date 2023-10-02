@@ -14,6 +14,7 @@
 IF SMALL_SCREEN=1
 	LINELEN=$230
 	MAP_SCRSTART=$3a00
+	map_xoffset=0
 	map_tiles_temp = $2000
 	before_map=*
 	ORG $3700
@@ -21,6 +22,7 @@ IF SMALL_SCREEN=1
 ELSE
 	LINELEN=$280
 	MAP_SCRSTART=$3000
+	map_xoffset=24
 IF SHADOW_MAP
 	map_tiles_temp = room
 ELSE
@@ -154,11 +156,9 @@ IF SMALL_SCREEN
 	jsr hwscroll_set_6845
 
 	lda #70
-	ldx #1
-	jsr hwscroll_write_reg
-	lda #93
-	ldx #2
-	jsr hwscroll_write_reg
+	ldy #1
+	ldx #93
+	jsr $ca2b
 	; hack: set line pointers
 	lda #$3a
 	sta linetab_hi
@@ -211,11 +211,9 @@ IF SMALL_SCREEN
 	lda #$4c ; screen size
 	sta $354
 	lda #76
-	ldx #1
-	jsr hwscroll_write_reg
-	lda #96
-	ldx #2
-	jsr hwscroll_write_reg
+	ldy #1
+	ldx #96
+	jsr $ca2b
 	; hack: set line pointers
 	lda #$34
 	sta linetab_hi
@@ -345,7 +343,7 @@ ENDIF ; not SHADOW_MAP
 .initmaptab
 {
 IF SMALL_SCREEN
-	xpos=0
+	xpos=1
 ELSE
 	xpos=3
 ENDIF
@@ -614,6 +612,9 @@ ENDIF
 {
 	; move one line down
 	inc zp_screenptr
+	bne noinc
+	inc zp_screenptr+1
+.noinc
 	lda #7
 	and zp_screenptr
 	bne noincline
@@ -641,11 +642,11 @@ ENDIF
 	NEXT
 .gridy_lo
 	FOR i,0,6,1
-	EQUB <(MAP_SCRSTART+(((i*34+16) AND 7)+((i*34+16) DIV 8)*LINELEN))
+	EQUB <(MAP_SCRSTART+(((i*34+16) AND 7)+((i*34+16) DIV 8)*LINELEN)+map_xoffset)
 	NEXT
 .gridy_hi
 	FOR i,0,6,1
-	EQUB >(MAP_SCRSTART+(((i*34+16) AND 7)+((i*34+16) DIV 8)*LINELEN))
+	EQUB >(MAP_SCRSTART+(((i*34+16) AND 7)+((i*34+16) DIV 8)*LINELEN)+map_xoffset)
 	NEXT
 
 IF SMALL_SCREEN

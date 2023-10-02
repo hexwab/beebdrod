@@ -85,7 +85,6 @@ INPOS = get_crunched_byte+1
 	ORG $400
 .core_start
 	INCLUDE "exo.s"
-	INCLUDE "fs.s"
 ; initialize waiting for A cs. A<127
 .delay_start
 	clc
@@ -104,4 +103,5 @@ INPOS = get_crunched_byte+1
 	bpl waitloop
 	rts
 }
+	INCLUDE "fs.s"
 .core_end

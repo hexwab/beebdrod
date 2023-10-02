@@ -78,7 +78,7 @@ transp_to_floor.s: transp_to_floor.pl
 heads.ssd: heads.exo headstest.s heads.s
 	$(BEEBASM) -i headstest.s -do heads.ssd -boot ƒheads -v >headstest.txt
 
-drod.ssd: drod.s exo.s intro.s title.s map.s zap.s tar.s sprite.s text.s minifont.s scroll.s tiles boot.s swr.s core.s hwscroll.s title.exo heads.exo heads.s makedisc.pl level.s fs.s wallpit.s transp_to_floor.s intro font_body.exo font_headline.exo story.exo files.h
+drod.ssd: drod.s exo.s intro.s title.s map.s zap.s tar.s sprite.s text.s minifont.s scroll.s tiles boot.s swr.s core.s hwscroll.s title.exo heads.exo heads.s makedisc.pl level.s fs.s wallpit.s transp_to_floor.s intro font_body.exo font_headline.exo story.exo font.s files.h
 	$(BEEBASM) -i title.s -D PLATFORM_BBCB=1 -D ELECTRON=0 -v >title.txt
 	perl makechain.pl titlecode title.txt >titlecode.exo
 	$(BEEBASM) -i title.s -D PLATFORM_ELK=1 -D ELECTRON=1 -v >titleelk.txt

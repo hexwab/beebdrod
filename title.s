@@ -12,6 +12,15 @@
 	timer_flag=$74
 	ORG $8000
 	INCLUDE "heads.out.s"
+IF PLATFORM_ELK
+	ORG $b000
+.start
+	INCLUDE "heads.ptrs.s"
+.init
+	lda $282
+	eor #%111000
+	jsr $e495
+ELSE
 	ORG $2000
 	INCLUDE "heads.ptrs.s"
 	
@@ -38,13 +47,9 @@ ENDIF
 	jsr heads_plot
 
 	jmp common
-
 .init
-IF PLATFORM_ELK
-	lda $282
-	eor #%111000
-	jsr $e495
 ENDIF
+
 	_print_string screen_blank_clear_white,screen_blank_clear_white_end
 	; print systype
 {	ldx systype
@@ -57,11 +62,13 @@ ENDIF
 	bne loop ; always
 .done
 }
+IF PLATFORM_ELK=0
 	ldy #FILE_headsptrs_exo
 	jsr load_and_decrunch
 	ldx systype
 	dex
 	beq beeb ; PLATFORM_BBCB
+ENDIF
 	ldy #FILE_heads_exo
 	jsr load_and_decrunch
 .common
@@ -88,9 +95,11 @@ ENDIF
 	ldy #0
 .mainloop
 	sty ytmp+1
+IF PLATFORM_ELK=0
 	ldx systype
 	dex
 	beq wait ; PLATFORM_BBCB
+ENDIF
 	jsr heads_plot
 	;lda #$f0
 	;sta $fe21

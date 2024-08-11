@@ -64,9 +64,33 @@ caploc=$3518
 	bpl circleloop
 }	
 	jsr dopage
-	jsr $ffe0
+{
+	lda systype
+	cmp #SYSTYPE_MASTER
+	beq master
+.wait
+	jsr osrdch
+	jmp common
+.flip
+	jsr osrdch
+	lda #19
+	jsr osbyte
+	lda $fe34
+	eor #7
+	sta $fe34
+	bra common
+.master
+	lda pageno
+	cmp #3 ; first?
+	bne flip
+	lda #6
+	tsb $fe34
+	; skip waiting for key
+.common
+}
+
 	lda #12
-	jsr $ffee
+	jsr oswrch
 	ldx pageno
 	lda pagetablo-1,X
 	sta get_byte+1
@@ -74,6 +98,16 @@ caploc=$3518
 	sta get_byte+2
 	dec pageno
 	bpl pageloop
+{
+	lda systype
+	cmp #SYSTYPE_MASTER
+	bne common
+.master
+	jsr osrdch
+	lda #7
+	trb $fe34
+.common
+}
 	ldy #FILE_intro_exo
 	jmp chain
 }

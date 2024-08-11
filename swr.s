@@ -14,7 +14,7 @@ INCLUDE "hw.h"
 	bcc notmaster
 .master
 	; all masters have systype 3
-	ldx #3 ; PLATFORM_MASTER
+	ldx #SYSTYPE_MASTER ; 3
 	bra common
 .notmaster
 	cpx #0
@@ -37,7 +37,7 @@ INCLUDE "hw.h"
 	cpx #2
 	beq bplus
 	bcs find_swram
-	ldx #2 ; PLATFORM_BEEB
+	ldx #SYSTYPE_BEEB ; 2
 
 .find_swram
 	ldy #15
@@ -74,7 +74,7 @@ INCLUDE "hw.h"
 	; $80-$8F: B+ with 16K of SWRAM (plus more paged out)
 	; $FF: B+ with 12K of SWRAM
 	jsr find_swram
-	ldx #2 ; restore PLATFORM_BEEB even if no SWRAM
+	ldx #SYSTYPE_BEEB ; restore PLATFORM_BEEB even if no SWRAM
 	tya
 	ora #128
 .page

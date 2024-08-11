@@ -45,7 +45,7 @@ chars=$2000
 	lda #19
 	jsr osbyte
 	lda systype
-	cmp #1 ;PLATFORM_BBCB
+	cmp #SYSTYPE_BBCB ;1
 	bne notbbcb
 .bbcb
 	; reset small screen

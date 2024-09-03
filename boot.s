@@ -2,7 +2,7 @@
 	include "os.h"
 	include "files.h"
 	include "text.h"
-	org $400
+	org $500
 .boot_start
 	
 	include "core.s"
@@ -46,7 +46,7 @@
 	ldx #1
 	jsr osbyte
 	jsr fs_init
-	ldy #FILE_titlecode_exo
+	ldy #FILE_titlecode_chain
 	lda systype
 	bne notelk
 	lda $282
@@ -82,12 +82,7 @@
 	ldx #0
 .ytmp
 	ldy #OVERB
-	jmp chain
 .bbcb
-	; we don't need init_get_byte_for_exo, avoid calling it so
-	; it can be overwritten
-	lda #$2c
-	sta init_exo_fixup
 }
 	jmp chain
 .screen_setup

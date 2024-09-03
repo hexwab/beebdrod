@@ -29,7 +29,7 @@ SECTORS_PER_TRACK=10 ; maybe 11 if we need more space?
 CAT_LO_OFFSET=$30 ; leave four files for DFS, 104 for us
 CAT_HI_OFFSET=$98 ; $30+($100-$30)/2
 
-SECBUF=$700
+SECBUF=$400
 CATBUF=$af00
 CATLO=SECBUF+CAT_LO_OFFSET
 CATHI=SECBUF+CAT_HI_OFFSET
@@ -37,6 +37,32 @@ zp_fs_tmphi=$9f
 	;INCLUDE "os.h"
 	;ORG $400
 .fs_start
+
+MACRO INIT_DECRUNCH_TO loc
+	ldx #>loc
+	lda #<loc
+ENDMACRO
+
+MACRO INIT_DECRUNCH_FILE_TO file,loc
+	ldy #file
+	jsr load_and_init_decrunch
+	INIT_DECRUNCH_TO loc
+ENDMACRO
+
+MACRO DECRUNCH_TO loc
+	INIT_DECRUNCH_TO loc
+	jsr decrunch_to
+ENDMACRO
+
+MACRO DECRUNCH_FILE_TO file,loc
+	INIT_DECRUNCH_FILE_TO file,loc
+	jsr decrunch_to
+ENDMACRO
+
+MACRO CHAIN file
+	ldy #file
+	jmp chain
+ENDMACRO
 
 ; for exo. must preserve A,X,Y,C
 .fs_get_byte
@@ -62,26 +88,22 @@ BUFOFF=secbufptr+1
 
 .chain
 	jsr load_and_init_decrunch
+	; exec address
 	jsr fs_get_byte
 	pha
 	jsr fs_get_byte
 	pha
-	jmp load_and_decrunch2
-.load_and_decrunch
-	jsr load_and_init_decrunch
-.load_and_decrunch2
-	ldx #3
-	jmp decrunch2
+	; load address
+	jsr fs_get_byte
+	tax
+	jsr fs_get_byte
+	jmp decrunch_to
 	
 	; cat in Y
 .load_and_init_decrunch
-{
-.*init_exo_fixup
-	jsr init_get_byte_for_exo
-.*get_cat_and_sector
+.get_cat_and_sector
 	jsr get_from_cat
 	jmp get_sector
-}
 
 ; parameter block for OSWORD $7F
 .diskblk
@@ -138,15 +160,15 @@ BUFOFF=secbufptr+1
 	rts
 }
 
-; Y=catalogue entry
-.get_cat_length
-{
-.*cat_fixup_3
-	lda CATHI,Y
-.*cat_fixup_4
-	ldx CATLO,Y
-	rts
-}
+;; ; Y=catalogue entry
+;; .get_cat_length
+;; {
+;; .*cat_fixup_3
+;; 	lda CATHI,Y
+;; .*cat_fixup_4
+;; 	ldx CATLO,Y
+;; 	rts
+;; }
 
 	; skip forward XA bytes
 .fs_skip_word
@@ -202,20 +224,6 @@ BUFOFF=secbufptr+1
 ;.error	brk
 ;	jmp osword
 
-.fs_get_loc
-{
-	lda BUFOFF
-	ldx diskblk_sector
-	ldy diskblk_track
-	rts
-}
-.fs_set_loc
-{
-	sta BUFOFF
-	stx diskblk_sector
-	sty diskblk_track
-	rts
-}
 
 ; this too can be overwritten if unneeded
 ; Y=catalogue entry, AX=location
@@ -224,9 +232,11 @@ BUFOFF=secbufptr+1
 	stx dst+1
 	sta dst+2
 	jsr get_from_cat
-	jsr get_cat_length
+.*cat_fixup_3
+ 	lda CATHI,Y
 	sta zp_fs_tmphi
-	txa
+.*cat_fixup_4
+ 	lda CATLO,Y
 	pha
 	jsr get_sector
 	pla
@@ -260,18 +270,27 @@ BUFOFF=secbufptr+1
 	ora #$20
 	sta diskblk_drive
 
-.init_get_byte_for_exo
-	lda #$4C ; JMP
-	sta get_crunched_byte
-	lda #<fs_get_byte
-	sta get_crunched_byte+1
+.restore_getbyte_func
+	ldx #<fs_get_byte
 	lda #>fs_get_byte
-	sta get_crunched_byte+2
+.set_getbyte_func
+{	ldy #1
+.loop
+	sta getbyte_fixup1+1,Y
+	sta getbyte_fixup2+1,Y
+	sta getbyte_fixup3+1,Y
+	txa
+	dey
+	bpl loop
 	rts
+}
+.set_mem_getbyte_func
+	ldx #<get_crunched_byte
+	lda #>get_crunched_byte
+	bpl set_getbyte_func ; always
+
 .gbpb_block
 	equw gbpb_block
 	equw $ffff ; I/O space
-	
+
 .fs_end
-;PUTBASIC "fstest.bas","fstest"
-;SAVE "fs",fs_start,fs_end

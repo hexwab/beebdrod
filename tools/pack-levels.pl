@@ -404,7 +404,7 @@ while (<>) {
 	    my $ptr=loc+headersize+length$out;
 	    #my $inlen=length $orbs;my $outlen=length exo($orbs,0x2400+40*34*2);print "ratio=".($inlen?($outlen/$inlen):"")." in=$inlen out=$outlen \n"; # turns out orb data is all but incompressible
 	    $out.=$orbs unless $dryrun;
-	    $out.=exo($r2,0x2400) unless $dryrun;
+	    $out.=crunch($r2,0x2400) unless $dryrun;
 	    #$out.=exo($orbs,0x2400+40*34*2) unless $dryrun;
 	    $head2.=pack"CvC", $coord, $ptr, length $orbs;
 	}
@@ -428,17 +428,21 @@ while (<>) {
     push @rooms, $n;
 }
 
-sub exo {
-    my ($dat) = @_;
+sub crunch {
+    my $dat = shift;
     use File::Temp qw[tempfile];
     my ($fh,$fn) = tempfile();
-    print $fh shift;
+    print $fh $dat;
     close $fh;
-    open my $f, sprintf("\$EXO level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,0);#$addr);
+    #hd($dat);
+    # *sigh*
+    my ($fh2,$fn2) = tempfile();
+    system(sprintf"\$ZX02 %s -f %s", $fn, $fn2) and die;
     local $/=undef;
-    my $q=<$f>;
-    unlink $fn;
-    return substr($q,2);
+    my $q=<$fh2>;
+    unlink $fn,$fn2;
+    #hd($q);
+    return $q;
 }
 
 sub hd {

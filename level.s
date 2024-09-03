@@ -14,21 +14,28 @@ IF ENTIRE_LEVEL
 	jmp load_file_to
 ELSE
 .seek_level
-	lda level_loc_stash
-	ldx level_loc_stash+1
-	ldy level_loc_stash+2
-	jmp fs_set_loc
+.level_loc_stash1
+	lda #OVERB
+	sta BUFOFF
+.level_loc_stash2
+	lda #OVERB
+	sta diskblk_sector
+.level_loc_stash3
+	lda #OVERB
+	sta diskblk_track
+	rts
 .load_level
 	lda levelno
 	clc
 	adc #FILE_level01
 	tay
-	jsr get_from_cat
-	jsr get_sector
-	jsr fs_get_loc
-	sta level_loc_stash
-	stx level_loc_stash+1
-	sty level_loc_stash+2
+	jsr load_and_init_decrunch
+	lda BUFOFF
+	sta level_loc_stash1+1
+	lda diskblk_sector
+	sta level_loc_stash2+1
+	lda diskblk_track
+	sta level_loc_stash3+1
 	ldy #0
 .loop
 	jsr fs_get_byte
@@ -48,8 +55,4 @@ ELSE
 	jsr fs_skip_word
 	jmp get_sector
 }
-.level_loc_stash
-	equb 0
-	equb 0
-	equb 0
 ENDIF

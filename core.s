@@ -42,11 +42,11 @@ SYSTYPE_MASTER=3
 FANCY_BORDERS=1
 IF PLATFORM_BBCB
 	SMALL_SCREEN=1 ; saves 1K of screen space, model B only
-	EXO_FROM_RAM=0 ; exo is decompress-from-disc only
+	DECRUNCH_FROM_RAM=0 ; decompress-from-disc only
 	ENTIRE_LEVEL=0 ; store entire level in SWRAM
 ELSE
 	SMALL_SCREEN=0
-	EXO_FROM_RAM=1
+	DECRUNCH_FROM_RAM=1
 	ENTIRE_LEVEL=1
 ENDIF
 IF PLATFORM_BBCB
@@ -87,9 +87,10 @@ BACKG_COL=2
 
 	
 INPOS = get_crunched_byte+1
-	ORG $400
+	ORG $500
 .core_start
-	INCLUDE "exo.s"
+	INCLUDE "zx02.s"
+
 ; initialize waiting for A cs. A<127
 .delay_start
 	clc

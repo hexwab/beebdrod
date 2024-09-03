@@ -56,21 +56,26 @@ for my $split (@split) {
     print STDERR "$start-$end: header ".length($head)." names ".length($names)." body ".length($body)."\n";
     hd($head.$names.$body);
     #my $out=$head.$body;
-    my $out=exo($head.$names.$body, loc);
+    my $out=crunch($head.$names.$body);
     open F, ">intro$start-$end" or die;
     print F $out;
     close F;
 }
-sub exo {
-    my ($dat, $addr) = @_;
+
+sub crunch {
+    my $dat = shift;
     use File::Temp qw[tempfile];
     my ($fh,$fn) = tempfile();
-    print $fh shift;
+    print $fh $dat;
     close $fh;
-    open my $f, sprintf("\$EXO level -q -c -M256 %s\@0x%x -o /dev/stdout|",$fn,$addr);
+    #hd($dat);
+    # *sigh*
+    my ($fh2,$fn2) = tempfile();
+    system(sprintf"\$ZX02 %s -f %s", $fn, $fn2) and die;
     local $/=undef;
-    my $q=<$f>;
-    unlink $fn;
+    my $q=<$fh2>;
+    unlink $fn,$fn2;
+    #hd($q);
     return $q;
 }
 

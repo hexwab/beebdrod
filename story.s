@@ -25,8 +25,7 @@ org $1100
 {
 	_print_string story_window,story_window_end
 	jsr setmode0
-	ldy #FILE_font_body_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_font_body_zx02, chars
 
 	; draw dropcap
 	ldx #55
@@ -108,8 +107,7 @@ caploc=$3518
 	trb $fe34
 .common
 }
-	ldy #FILE_intro_exo
-	jmp chain
+	CHAIN FILE_intro_chain
 }
 .setmode0
 	lda systype

@@ -100,7 +100,7 @@ zp_temp2	= $7d
 zp_moved_dir	= $7e ; what direction the player moved last
 zp_tmpmask	= $7f ; sprite plotter
 ; pre-initialized zero page
-IF EXO_FROM_RAM
+IF DECRUNCH_FROM_RAM
 zp=$44
 ELSE
 zp=$44+$a
@@ -124,9 +124,8 @@ ELSE
 	GUARD $2300
 ENDIF
 .start
-IF PLATFORM_BBCB
-	; load sprites over init code
-	jsr decrunch2
+IF ENTIRE_LEVEL
+	jsr set_mem_getbyte_func
 ENDIF
 	jsr init_level
 .mainloop
@@ -192,7 +191,7 @@ ENDIF
 	bne notmap
 IF SMALL_SCREEN
 	jsr hwscroll_screen_off
-	ldy #FILE_map_overlay_exo
+	ldy #FILE_map_overlay_chain
 	jsr chain
 	jmp hwscroll_screen_on
 ELSE
@@ -274,9 +273,9 @@ IF PLATFORM_ELK
 ENDIF
 	ldx zp_roomno
 	; mark room as explored
-	lda level_coordtab,X
-	ora #$80
-	sta level_coordtab,X
+	asl level_coordtab,X
+	sec
+	ror level_coordtab,X
 IF ENTIRE_LEVEL
 IF level<>$8000
 	lda level_roomptrhi,X
@@ -294,11 +293,10 @@ ENDIF
 	bcc noinc
 	iny
 .noinc
-	tax
-	lda #>room_end
-	sta zp_exo_dest_hi
-	lda #<room_end
-	jsr decrunch_to_no_header ; decompress room
+
+	sta INPOS
+	sty INPOS+1
+	DECRUNCH_TO room ; decompress room
 ELSE ; not ENTIRE_LEVEL
 	jsr seek_level
 	ldy zp_roomno
@@ -318,12 +316,7 @@ ELSE ; not ENTIRE_LEVEL
 	bne orbloop
 .orbdone
 }
-	lda #>room_end
-	sta zp_exo_dest_hi
-	lda #<room_end
-	sta zp_exo_dest_lo
-	lda #1
-	jsr continue_decrunching
+	DECRUNCH_TO room
 ENDIF
 
 	ldy zp_playerx
@@ -732,7 +725,10 @@ ENDIF
 	beq stairloop
 .done
 	inc levelno
-	ldy #FILE_intro_exo
+IF ENTIRE_LEVEL
+	jsr restore_getbyte_func
+ENDIF
+	ldy #FILE_intro_chain
 	jmp chain
 }
 MINI=1	
@@ -1335,10 +1331,6 @@ INCLUDE "level.s"
 	sta $202
 	lda #>abort
 	sta $203
-IF PLATFORM_BBCB=0
-	ldy #FILE_tiles_exo
-	jsr load_and_decrunch
-ENDIF
 	jsr load_level
 
 .init_zp
@@ -1350,6 +1342,11 @@ ENDIF
 	bpl loop
 }
 
+IF PLATFORM_BBCB=0
+	; load tiles before waiting for key
+	DECRUNCH_FILE_TO FILE_tiles_zx02, SPRTAB
+ENDIF
+	
 	_print_string space,space_end
 IF SMALL_SCREEN
 .makerowmult
@@ -1375,18 +1372,6 @@ IF SMALL_SCREEN
 	lda #>rowmult
 	sta $e1 ; tell OS about new line spacing
 }
-ENDIF
-
-IF PLATFORM_BBCB
-.load_tiles
-	ldy #FILE_tiles_exo
-	jsr load_and_init_decrunch
-	jsr fs_get_byte ; skip header
-	jsr fs_get_byte
-	lda #>(SPRTAB+$800)
-	sta zp_exo_dest_hi
-	lda #<(SPRTAB+$800)
-	sta zp_exo_dest_lo
 ENDIF
 
 	jsr osrdch ;wait for key
@@ -1438,10 +1423,20 @@ ELSE
 	_print_string blank3839,blank3839_end
 	jsr hwscroll_screen_on
 ENDIF
+
 IF PLATFORM_BBCB
-	ldx #1
-ENDIF
+	; load tiles after waiting for key, overwriting init,
+	; and return to main game loop
+	lda #>(start-1)
+	pha
+	lda #<(start-1)
+	pha
+	INIT_DECRUNCH_FILE_TO FILE_tiles_zx02, SPRTAB
+	jmp decrunch_to
+ELSE
 	jmp start
+ENDIF
+	
 .space
 	equb 26,31,13,28,17,1,"[Press SPACE]"
 .space_end
@@ -1455,7 +1450,7 @@ ENDIF
 }
 
 .zp_stuff
-IF EXO_FROM_RAM	
+IF DECRUNCH_FROM_RAM
 .get_crunched_byte_copy
 {
 	lda OVERW

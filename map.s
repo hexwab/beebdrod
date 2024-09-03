@@ -190,16 +190,7 @@ IF SMALL_SCREEN
 	inx
 	bne loop
 	; reload tiles
-	ldy #FILE_tiles_exo
-	jsr load_and_init_decrunch
-	jsr fs_get_byte ; skip header
-	jsr fs_get_byte
-	lda #>(SPRTAB+$800)
-	sta zp_exo_dest_hi
-	lda #<(SPRTAB+$800)
-	sta zp_exo_dest_lo
-	ldx #1
-	jsr decrunch2
+	DECRUNCH_FILE_TO FILE_tiles_zx02, SPRTAB
 }
 ENDIF
 	jsr osrdch ; wait for key
@@ -256,8 +247,7 @@ IF ENTIRE_LEVEL
 {	
 	; decompress tiles to temporary storage
 	; we start from the end and decompress backwards
-	lda #>map_tiles_temp_end
-	sta zp_exo_dest_hi
+
 	ldx zp_tmproomno
 IF level<>$8000
 	lda level_roomptrhi,X
@@ -273,9 +263,9 @@ ENDIF
 	bcc noinc
 	iny
 .noinc
-	tax
-	lda #<map_tiles_temp_end
-	jsr decrunch_to_no_header
+	sty INPOS+1
+	sta INPOS
+	DECRUNCH_TO map_tiles_temp
 }
 	jsr draw_room
 
@@ -323,12 +313,7 @@ ELSE ; not ENTIRE_LEVEL
 	lda level_orblen,Y
 	jsr fs_skip
 	jsr get_sector
-	lda #>map_tiles_temp_end
-	sta zp_exo_dest_hi
-	lda #<map_tiles_temp_end
-	sta zp_exo_dest_lo
-	lda #1
-	jsr continue_decrunching
+	DECRUNCH_TO map_tiles_temp
 	jsr draw_room
 
 .room_done

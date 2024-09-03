@@ -3,24 +3,24 @@ undef $/;
 use constant CATLO=>0x130;
 use constant CATHI=>0x198;
 my @files=qw[
-    titlecode.exo
-    titlecode_elk.exo
-    title.exo
-    heads.exo
-    headsptrs.exo
-    tiles.exo
-    intro.exo
+    titlecode.chain
+    titlecode_elk.chain
+    title.zx02
+    heads.zx02
+    headsptrs.zx02
+    tiles.zx02
+    intro.chain
     intro1-9
     intro10-17
     intro18-25
-    font_body.exo
-    font_headline.exo
-    story.exo
-    code_elk.exo
-    code_bbcb.exo
-    code_beeb.exo
-    code_master.exo
-    map_overlay.exo
+    font_body.zx02
+    font_headline.zx02
+    story.chain
+    code_elk.chain
+    code_bbcb.chain
+    code_beeb.chain
+    code_master.chain
+    map_overlay.chain
     level01 level02 level03 level04 level05
     level06 level07 level08 level09 level10
     level11 level12 level13 level14 level15

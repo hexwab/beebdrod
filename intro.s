@@ -35,12 +35,12 @@ chars=$2000
 .done
 }
 	sta levelidx
-	jsr load_and_decrunch
+	jsr load_and_init_decrunch
+	DECRUNCH_TO loc
 	lda #21
 	ldx #0
 	jsr osbyte ; flush keyboard buffer
-	ldy #FILE_font_headline_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_font_headline_zx02, chars
 .draw_title
 	lda #19
 	jsr osbyte
@@ -106,8 +106,7 @@ chars=$2000
 
 .print_intro
 {
-	ldy #FILE_font_body_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_font_body_zx02, $2000
 	ldx levelidx
 	lda headlo,X
 	sta get_byte+1
@@ -117,7 +116,7 @@ chars=$2000
 }
 
 .run_game
-	lda #FILE_code_elk_exo
+	lda #FILE_code_elk_chain
 	clc
 	adc systype
 	tay

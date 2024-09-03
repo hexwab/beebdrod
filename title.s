@@ -63,17 +63,14 @@ ENDIF
 .done
 }
 IF PLATFORM_ELK=0
-	ldy #FILE_headsptrs_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_headsptrs_zx02, $2000
 	ldx systype
 	dex
 	beq beeb ; PLATFORM_BBCB
 ENDIF
-	ldy #FILE_heads_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_heads_zx02, $8000
 .common
-	ldy #FILE_title_exo
-	jsr load_and_decrunch
+	DECRUNCH_FILE_TO FILE_title_zx02, $5580
 	lda #4
 	ldx #1
 	jsr osbyte
@@ -156,12 +153,12 @@ ENDIF
 	_print_string screen_clear_2,screen_clear_2_end
 	ldy levelno
 	bmi story
-	ldy #FILE_intro_exo
-	jmp chain
+	CHAIN FILE_intro_chain
+
 .story
 	inc levelno
-	ldy #FILE_story_exo
-	jmp chain
+	CHAIN FILE_story_chain
+
 .screen_blank_clear_white
 	equb 19,3,0,0,0,0,19,2,0,0,0,0,19,1,0,0,0,0,17,131,12
 	equb 31,20,4,17,0
